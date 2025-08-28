@@ -3,6 +3,7 @@ from datetime import date, datetime
 from typing import Mapping, Any
 
 from pydantic import (
+    ConfigDict,
     BaseModel as PydanticBaseModel,
     Field,
     validator
@@ -127,6 +128,7 @@ class BaseModel(PydanticBaseModel):
 
 
 class BookingModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
 
     start_station: int = Field(..., alias='selectStartStation')
     dest_station: int = Field(..., alias='selectDestinationStation')
@@ -232,12 +234,16 @@ class Train(BaseModel):
     form_value: str
 
 
+from pydantic import ConfigDict
+
 class ConfirmTrainModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     selected_train: str = Field(..., alias='TrainQueryDataViewPanel:TrainGroup')
     form_mark: str = Field('', alias='BookingS2Form:hf:0')
 
 
 class ConfirmTicketModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     personal_id: str = Field(..., alias='dummyId')
     phone_num: str = Field(..., alias='dummyPhone')
     member_radio: str = Field(
