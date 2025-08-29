@@ -35,6 +35,7 @@ def main():
             time.sleep(random.randint(1, 3))
         except Exception as e:
             print(e)
+            time.sleep(random.randint(1, 3))
 
 if __name__ == "__main__":
     main()
