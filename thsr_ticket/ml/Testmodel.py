@@ -1,5 +1,8 @@
 import torch.nn as nn
-import configs.model_config as model_config
+try:
+    from thsr_ticket.configs import model_config
+except ImportError:
+    import configs.model_config as model_config
  
  
 conf=model_config.load_config()

@@ -25,6 +25,23 @@ class ConfirmTicketFlow:
 
         json_params = ticket_model.json(by_alias=True)
         dict_params = json.loads(json_params)
+        
+        # Auto-fill passenger IDs for discounted tickets (Elder/Disabled) using the main ID
+        # Finding all inputs for passenger IDs
+        # Format usually: TicketPassengerInfoInputPanel:passengerDataView:X:passengerDataView2:passengerDataIdNumber
+        passenger_id_inputs = page.find_all('input', attrs={'name': lambda x: x and 'passengerDataIdNumber' in x})
+        
+        if passenger_id_inputs and self.record and self.record.personal_id:
+             for inp in passenger_id_inputs:
+                 # Check if it's visible or likely required? 
+                 # Usually hidden inputs are for non-required or pre-filled?
+                 # Actually, for Adults, the input might be hidden or not present.
+                 # For Elder, it is present.
+                 # We just fill all we find.
+                 key = inp.attrs.get('name')
+                 if key:
+                     dict_params[key] = self.record.personal_id
+
         resp = self.client.submit_ticket(dict_params)
         return resp, ticket_model
 

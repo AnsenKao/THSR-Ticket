@@ -11,7 +11,7 @@ from thsr_ticket.model.db import Record
 from thsr_ticket.remote.http_request import HTTPRequest
 from thsr_ticket.configs.web.param_schema import BookingModel
 from thsr_ticket.configs.web.parse_html_element import BOOKING_PAGE
-from thsr_ticket.ml.run import run
+from thsr_ticket.ml.model import CaptchaSolver
 from thsr_ticket.configs.web.enums import StationMapping, TicketType
 from thsr_ticket.configs.common import (
     AVAILABLE_TIME_TABLE,
@@ -19,11 +19,11 @@ from thsr_ticket.configs.common import (
     MAX_TICKET_NUM,
 )
 
-
 class FirstPageFlow:
-    def __init__(self, client: HTTPRequest, record: Record = None) -> None:
+    def __init__(self, client: HTTPRequest, record: Record = None, captcha_solver: CaptchaSolver = None) -> None:
         self.client = client
         self.record = record
+        self.captcha_solver = captcha_solver
 
     def run(self) -> Tuple[Response, BookingModel, Record]:
         # First page. Booking options
@@ -50,10 +50,14 @@ class FirstPageFlow:
             outbound_date=self.record.outbound_date or self.select_date('出發'),
             outbound_time=self.record.outbound_time or self.select_time('啟程'),
             adult_ticket_num=self.record.adult_num or self.select_ticket_num(TicketType.ADULT),
-            seat_prefer=_parse_seat_prefer_value(page),
+            child_ticket_num=self.select_ticket_num(TicketType.CHILD, 0),
+            disabled_ticket_num=self.select_ticket_num(TicketType.DISABLED, 0),
+            elder_ticket_num=self.select_ticket_num(TicketType.ELDER, 0),
+            college_ticket_num=self.select_ticket_num(TicketType.COLLEGE, 0),
+            seat_prefer=self.select_seat_prefer(),
             types_of_trip=_parse_types_of_trip_value(page),
             search_by=_parse_search_by(page),
-            security_code=_input_security_code(img_resp),
+            security_code=self._input_security_code(img_resp),
         )
 
         # 更新 record 的其他欄位
@@ -130,10 +134,10 @@ class FirstPageFlow:
         if self.record and (
             ticket_num_str := {
                 TicketType.ADULT: self.record.adult_num,
-                TicketType.CHILD: None,
-                TicketType.DISABLED: None,
-                TicketType.ELDER: None,
-                TicketType.COLLEGE: None,
+                TicketType.CHILD: self.record.child_ticket_num,
+                TicketType.DISABLED: self.record.disabled_ticket_num,
+                TicketType.ELDER: self.record.elder_ticket_num,
+                TicketType.COLLEGE: self.record.college_ticket_num,
             }.get(ticket_type)
         ):
             return ticket_num_str
@@ -149,6 +153,34 @@ class FirstPageFlow:
         print(f'選擇{ticket_type_name}票數（0~{MAX_TICKET_NUM}）（預設：{default_ticket_num}）')
         ticket_num = int(input() or default_ticket_num)
         return f'{ticket_num}{ticket_type.value}'
+
+    def select_seat_prefer(self) -> str:
+        print('選擇座位偏好：')
+        options = [
+            ('radio16', '無'),
+            ('radio17', '靠窗優先'),
+            ('radio18', '走道優先'),
+        ]
+        for idx, (val, label) in enumerate(options):
+            print(f'{idx+1}. {label}')
+
+        try:
+            selected_opt = int(input(f'輸入選擇（預設：1）：') or 1)
+            return options[selected_opt-1][0]
+        except (ValueError, IndexError):
+            return options[0][0]
+
+    def _input_security_code(self, img_resp: bytes) -> str:
+        # print('輸入驗證碼：')
+        img = Image.open(io.BytesIO(img_resp))
+        # img.show()
+        image = crop_and_resize(img)
+        if self.captcha_solver:
+            captcha = self.captcha_solver.predict(image)
+        else:
+            print("Warning: CaptchaSolver not provided!")
+            captcha = ""
+        return captcha
 
 def crop_and_resize(im):
     #將下載的驗證碼統一大小縮圖
@@ -189,10 +221,3 @@ def _parse_search_by(page: BeautifulSoup) -> str:
     return tag.attrs['value']
 
 
-def _input_security_code(img_resp: bytes) -> str:
-    # print('輸入驗證碼：')
-    img = Image.open(io.BytesIO(img_resp))
-    # img.show()
-    image = crop_and_resize(img)
-    captcha = run(image)
-    return captcha

@@ -11,17 +11,21 @@ from thsr_ticket.model.db import ParamDB
 from thsr_ticket.remote.http_request import HTTPRequest
 
 
+
+from thsr_ticket.ml.model import CaptchaSolver
+
 class BookingFlow:
-    def __init__(self, record=None) -> None:
+    def __init__(self, record=None, captcha_solver: CaptchaSolver = None) -> None:
         self.client = HTTPRequest()
         self.db = ParamDB()
         self.error_feedback = ErrorFeedback()
         self.show_error_msg = ShowErrorMsg()
         self.record = record
+        self.captcha_solver = captcha_solver
 
     def run(self) -> Response:
         # First page. Booking options
-        book_resp, book_model, updated_record = FirstPageFlow(client=self.client, record=self.record).run()
+        book_resp, book_model, updated_record = FirstPageFlow(client=self.client, record=self.record, captcha_solver=self.captcha_solver).run()
         self.record = updated_record
         if self.show_error(book_resp.content):
             return book_resp

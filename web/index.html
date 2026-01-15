@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高鐵自動訂票機器人</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .soft-input {
+            width: 100%;
+            background-color: rgba(55, 65, 81, 0.5);
+            color: white;
+            border-radius: 1rem;
+            padding: 0.75rem 1.25rem;
+            border: 1px solid rgb(75, 85, 99);
+            transition: all 0.3s;
+        }
+
+        .soft-input:focus {
+            border-color: rgb(96, 165, 250);
+            background-color: rgb(55, 65, 81);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+        }
+    </style>
+</head>
+
+<body
+    class="bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 text-gray-100 min-h-screen selection:bg-blue-500 selection:text-white">
+    <div id="app" class="container mx-auto px-4 py-12 max-w-5xl">
+        <!-- Header -->
+        <header class="mb-12 text-center space-y-2">
+            <h1
+                class="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-indigo-400 tracking-tight">
+                高鐵自動訂票
+            </h1>
+        </header>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            <!-- Left Panel: Form -->
+            <div class="lg:col-span-8 space-y-6">
+
+                <!-- Status/Alert -->
+                <transition enter-active-class="transition duration-300 ease-out"
+                    enter-from-class="transform -translate-y-2 opacity-0"
+                    enter-to-class="transform translate-y-0 opacity-100">
+                    <div v-if="status.message"
+                        :class="`p-5 rounded-2xl flex items-center gap-4 ${status.type === 'error' ? 'bg-red-500/10 text-red-100 border-red-500/30' : 'bg-emerald-500/10 text-emerald-100 border-emerald-500/30'} border backdrop-blur-md shadow-lg`">
+                        <span class="text-2xl">{{ status.type === 'error' ? '🚨' : '🎉' }}</span>
+                        <div>
+                            <p class="font-bold text-lg">{{ status.title }}</p>
+                            <p class="opacity-90">{{ status.message }}</p>
+                        </div>
+                    </div>
+                </transition>
+
+                <div
+                    class="bg-gray-800/40 rounded-3xl p-8 border border-white/10 shadow-2xl backdrop-blur-md relative overflow-hidden group">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none">
+                    </div>
+
+                    <h2 class="text-2xl font-bold mb-8 flex items-center gap-3 text-white/90">
+                        <span class="bg-blue-500/20 text-blue-300 p-3 rounded-xl">🎫</span>
+                        訂票資訊
+                    </h2>
+
+                    <form @submit.prevent="submitBooking" class="space-y-6 relative z-10">
+
+                        <!-- Personal Info -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">身分證字號</label>
+                                <input v-model="form.personal_id" type="text" placeholder="A123456789"
+                                    class="soft-input" required>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">手機號碼</label>
+                                <input v-model="form.phone" type="text" placeholder="0912345678" class="soft-input">
+                            </div>
+                        </div>
+
+                        <!-- Stations -->
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">起站</label>
+                                <div class="relative">
+                                    <select v-model="form.start_station" class="soft-input appearance-none" required>
+                                        <option v-for="s in stations" :value="s.id">{{ s.name }}</option>
+                                    </select>
+                                    <div
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        ▼</div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">迄站</label>
+                                <div class="relative">
+                                    <select v-model="form.dest_station" class="soft-input appearance-none" required>
+                                        <option v-for="s in stations" :value="s.id">{{ s.name }}</option>
+                                    </select>
+                                    <div
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        ▼</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Date & Time & Limit -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">日期</label>
+                                <input v-model="form.outbound_date" type="date" class="soft-input" required>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">時間</label>
+                                <div class="relative">
+                                    <select v-model="form.outbound_time" class="soft-input appearance-none" required>
+                                        <option v-for="t in timeOptions" :value="t.val">{{ t.label }}</option>
+                                    </select>
+                                    <div
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        ▼</div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">最晚發車(時)</label>
+                                <div class="relative">
+                                    <select v-model="form.outbound_delay_time" class="soft-input appearance-none">
+                                        <option v-for="h in 24" :value="h-1">{{ h-1 }}:00</option>
+                                    </select>
+                                    <div
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        ▼</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tickets -->
+                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">成人票</label>
+                                <div class="relative">
+                                    <select v-model="form.adult_num_val" class="soft-input appearance-none">
+                                        <option :value="0">0 張</option>
+                                        <option v-for="n in 10" :value="n">{{ n }} 張</option>
+                                    </select>
+                                    <div
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        ▼</div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">孩童票</label>
+                                <div class="relative">
+                                    <select v-model="form.child_ticket_num_val" class="soft-input appearance-none">
+                                        <option :value="0">0 張</option>
+                                        <option v-for="n in 10" :value="n">{{ n }} 張</option>
+                                    </select>
+                                    <div
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        ▼</div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">愛心票</label>
+                                <div class="relative">
+                                    <select v-model="form.disabled_ticket_num_val" class="soft-input appearance-none">
+                                        <option :value="0">0 張</option>
+                                        <option v-for="n in 10" :value="n">{{ n }} 張</option>
+                                    </select>
+                                    <div
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        ▼</div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">敬老票</label>
+                                <div class="relative">
+                                    <select v-model="form.elder_ticket_num_val" class="soft-input appearance-none">
+                                        <option :value="0">0 張</option>
+                                        <option v-for="n in 10" :value="n">{{ n }} 張</option>
+                                    </select>
+                                    <div
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        ▼</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">大學生票</label>
+                                <div class="relative">
+                                    <select v-model="form.college_ticket_num_val" class="soft-input appearance-none">
+                                        <option :value="0">0 張</option>
+                                        <option v-for="n in 10" :value="n">{{ n }} 張</option>
+                                    </select>
+                                    <div
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        ▼</div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-gray-300 text-sm font-medium ml-1">座位偏好</label>
+                                <div class="relative">
+                                    <select v-model="form.seat_prefer" class="soft-input appearance-none">
+                                        <option value="radio16">無</option>
+                                        <option value="radio17">靠窗優先</option>
+                                        <option value="radio18">走道優先</option>
+                                    </select>
+                                    <div
+                                        class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        ▼</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" :disabled="loading"
+                            class="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-blue-500/30 transform transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed mt-8 flex justify-center items-center gap-3">
+                            <span v-if="loading"
+                                class="animate-spin h-6 w-6 border-3 border-white/30 border-t-white rounded-full"></span>
+                            <span v-else class="text-lg">立即訂票 🚀</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Panel: History / Info -->
+            <div class="lg:col-span-4 space-y-6">
+                <div
+                    class="bg-gray-800/40 rounded-3xl p-8 border border-white/10 shadow-2xl backdrop-blur-md h-full flex flex-col">
+                    <h2 class="text-xl font-bold mb-6 flex items-center gap-3 text-white/90">
+                        <span class="bg-purple-500/20 text-purple-300 p-2 rounded-xl">📜</span>
+                        歷史紀錄
+                    </h2>
+
+                    <div v-if="history.length === 0"
+                        class="text-center text-gray-500 py-12 bg-gray-900/20 rounded-2xl border border-gray-700/50 border-dashed">
+                        <p>尚無歷史紀錄</p>
+                    </div>
+
+                    <div v-else class="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
+                        <div v-for="(h, idx) in history" :key="idx"
+                            class="group p-4 rounded-2xl bg-gray-800/60 border border-gray-700/50 hover:bg-gray-700/80 hover:border-gray-500 cursor-pointer transition-all duration-300 active:scale-98"
+                            @click="loadHistory(h)">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-bold text-blue-200 group-hover:text-white transition-colors">{{
+                                    h.outbound_date }}</span>
+                                <span
+                                    class="text-xs bg-gray-700/80 px-3 py-1 rounded-full text-gray-300 group-hover:bg-blue-600 group-hover:text-white transition-colors">{{
+                                    h.outbound_time }}</span>
+                            </div>
+                            <div class="text-sm text-gray-400 flex justify-between items-center">
+                                <div class="flex items-center gap-2">
+                                    <span class="bg-gray-700/50 px-2 py-0.5 rounded-lg text-xs">{{
+                                        getStationName(h.start_station) }}</span>
+                                    <span class="text-gray-600">➝</span>
+                                    <span class="bg-gray-700/50 px-2 py-0.5 rounded-lg text-xs">{{
+                                        getStationName(h.dest_station) }}</span>
+                                </div>
+                                <span class="text-xs opacity-50">{{ h.personal_id }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button @click="fetchHistory"
+                        class="w-full mt-6 py-3 border border-gray-600/50 rounded-xl text-gray-400 hover:bg-gray-700/50 hover:text-white hover:border-gray-500 transition-all text-sm font-medium">
+                        重新整理
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, computed } = Vue;
+
+        createApp({
+            setup() {
+                const loading = ref(false);
+                const status = ref({ type: '', title: '', message: '' });
+                const stations = ref([]);
+                const history = ref([]);
+
+                // Form Data
+                const form = ref({
+                    personal_id: '',
+                    phone: '',
+                    start_station: 1, // Taipei default
+                    dest_station: 2, // Zuouing
+                    outbound_date: new Date().toISOString().split('T')[0],
+                    outbound_time: '1200',
+                    outbound_delay_time: 23, // Default to 23:00
+                    adult_num_val: 1,
+                    child_ticket_num_val: 0,
+                    disabled_ticket_num_val: 0,
+                    elder_ticket_num_val: 0,
+                    college_ticket_num_val: 0,
+                    seat_prefer: 'radio16'
+                });
+
+                const commonTimes = [
+                    { val: "500", label: "05:00" },
+                    { val: "600", label: "06:00" },
+                    { val: "700", label: "07:00" },
+                    { val: "800", label: "08:00" },
+                    { val: "900", label: "09:00" },
+                    { val: "1000", label: "10:00" },
+                    { val: "1100", label: "11:00" },
+                    { val: "1200", label: "12:00" },
+                    { val: "1230", label: "12:30" },
+                    { val: "1300", label: "13:00" },
+                    { val: "1400", label: "14:00" },
+                    { val: "1500", label: "15:00" },
+                    { val: "1600", label: "16:00" },
+                    { val: "1700", label: "17:00" },
+                    { val: "1800", label: "18:00" },
+                    { val: "1900", label: "19:00" },
+                    { val: "2000", label: "20:00" },
+                    { val: "2100", label: "21:00" },
+                    { val: "2200", label: "22:00" },
+                    { val: "2300", label: "23:00" },
+                ];
+
+                const fetchStations = async () => {
+                    try {
+                        const res = await fetch('/api/stations');
+                        stations.value = await res.json();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                };
+
+                const fetchHistory = async () => {
+                    try {
+                        const res = await fetch('/api/history');
+                        history.value = await res.json();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                };
+
+                const getStationName = (id) => {
+                    const s = stations.value.find(x => x.id === id);
+                    return s ? s.name : id;
+                };
+
+                const loadHistory = (h) => {
+                    form.value = {
+                        ...form.value,
+                        personal_id: h.personal_id,
+                        phone: h.phone,
+                        start_station: h.start_station,
+                        dest_station: h.dest_station,
+                        outbound_time: h.outbound_time,
+                        outbound_date: h.outbound_date,
+                        // Parse fields "1F" -> 1
+                        adult_num_val: parseInt(h.adult_num) !== undefined ? parseInt(h.adult_num) : 1,
+                        child_ticket_num_val: parseInt(h.child_ticket_num) || 0,
+                        disabled_ticket_num_val: parseInt(h.disabled_ticket_num) || 0,
+                        elder_ticket_num_val: parseInt(h.elder_ticket_num) || 0,
+                        college_ticket_num_val: parseInt(h.college_ticket_num) || 0,
+                        outbound_delay_time: h.outbound_delay_time ? parseInt(h.outbound_delay_time) : 23
+                    };
+                };
+
+                const submitBooking = async () => {
+                    loading.value = true;
+                    status.value = { type: 'info', title: '處理中', message: '正在為您搶票，請稍候...' };
+
+                    try {
+                        const payload = {
+                            ...form.value,
+                            adult_num: `${form.value.adult_num_val}F`,
+                            child_ticket_num: `${form.value.child_ticket_num_val}H`,
+                            disabled_ticket_num: `${form.value.disabled_ticket_num_val}W`,
+                            elder_ticket_num: `${form.value.elder_ticket_num_val}E`,
+                            college_ticket_num: `${form.value.college_ticket_num_val}P`,
+                            outbound_delay_time: String(form.value.outbound_delay_time)
+                            // Ensure date is string YYYY-MM-DD
+                        };
+
+                        const res = await fetch('/api/book', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        const data = await res.json();
+
+                        if (data.status === 'success') {
+                            status.value = {
+                                type: 'success',
+                                title: '訂票成功!',
+                                message: '請查看您的手機或 e-mail 以完成付款。'
+                            };
+                            fetchHistory(); // refresh history
+                        } else {
+                            throw new Error(data.message);
+                        }
+                    } catch (e) {
+                        status.value = {
+                            type: 'error',
+                            title: '訂票失敗',
+                            message: e.message || '發生未知錯誤。'
+                        };
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                onMounted(() => {
+                    fetchStations();
+                    fetchHistory();
+                    const now = new Date();
+                    now.setHours(now.getHours() + 1);
+                });
+
+                return {
+                    form,
+                    stations,
+                    history,
+                    loading,
+                    status,
+                    timeOptions: commonTimes,
+                    submitBooking,
+                    getStationName,
+                    loadHistory,
+                    fetchHistory
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

@@ -18,6 +18,10 @@ class Record(NamedTuple):
     adult_num: str = None
     outbound_date: str = None
     outbound_delay_time: str = None
+    child_ticket_num: str = None
+    disabled_ticket_num: str = None
+    elder_ticket_num: str = None
+    college_ticket_num: str = None
 
 
 class ParamDB:
@@ -38,7 +42,11 @@ class ParamDB:
             record.outbound_time,
             record.adult_num,
             record.outbound_date,
-            record.outbound_delay_time
+            record.outbound_delay_time,
+            record.child_ticket_num,
+            record.disabled_ticket_num,
+            record.elder_ticket_num,
+            record.college_ticket_num
         )._asdict()  # type: ignore
         with TinyDB(self.db_path, sort_keys=True, indent=4) as db:
             hist = db.search(Query().personal_id == ticket.personal_id)
@@ -52,8 +60,14 @@ class ParamDB:
 
     def _compare_hist(self, data: Mapping[str, Any], hist: Iterable[Document]) -> int:
         for idx, h in enumerate(hist):
-            comp = [h[k] for k in data.keys() if h[k] == data[k]]
-            if len(comp) == len(data):
+            # Check if all keys in data match the record in history
+            # If a key is missing in history, it doesn't match
+            match = True
+            for k, v in data.items():
+                if k not in h or h[k] != v:
+                    match = False
+                    break
+            if match:
                 return idx
         return None
 
