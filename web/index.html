@@ -75,6 +75,16 @@
                 box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
             }
         }
+
+        @keyframes loading {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
     </style>
 </head>
 
@@ -88,7 +98,7 @@
                 高鐵自動搶票系統 🚀
             </h1>
             <div class="text-xs text-gray-400 border border-gray-700 rounded-full px-3 py-1">
-                v2.0 Batch Mode
+                v2.1 Batch Mode
             </div>
         </header>
 
@@ -155,12 +165,12 @@
                             </div>
                         </div>
 
-                        <!-- Tickets Quick Select (Adult Only for simplicity in layout, expand if needed) -->
+                        <!-- Tickets Quick Select -->
                         <div class="grid grid-cols-2 gap-3">
                             <div class="space-y-1">
                                 <label class="block text-gray-400 text-xs ml-1">Adult</label>
                                 <select v-model="form.adult_num_val" class="soft-input appearance-none">
-                                    <option v-for="n in 10" :value="n">{{ n }} 張</option>
+                                    <option v-for="n in 11" :value="n-1">{{ n-1 }} 張</option>
                                 </select>
                             </div>
                             <div class="space-y-1">
@@ -169,6 +179,36 @@
                                     <option value="radio16">無</option>
                                     <option value="radio17">靠窗</option>
                                     <option value="radio18">走道</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Extended Tickets -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1">
+                                <label class="block text-gray-400 text-xs ml-1">Child</label>
+                                <select v-model="form.child_ticket_num_val" class="soft-input appearance-none">
+                                    <option v-for="n in 10" :value="n-1">{{ n-1 }} 張</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="block text-gray-400 text-xs ml-1">Elder</label>
+                                <select v-model="form.elder_ticket_num_val" class="soft-input appearance-none">
+                                    <option v-for="n in 10" :value="n-1">{{ n-1 }} 張</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1">
+                                <label class="block text-gray-400 text-xs ml-1">Disabled</label>
+                                <select v-model="form.disabled_ticket_num_val" class="soft-input appearance-none">
+                                    <option v-for="n in 10" :value="n-1">{{ n-1 }} 張</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="block text-gray-400 text-xs ml-1">College</label>
+                                <select v-model="form.college_ticket_num_val" class="soft-input appearance-none">
+                                    <option v-for="n in 10" :value="n-1">{{ n-1 }} 張</option>
                                 </select>
                             </div>
                         </div>
@@ -272,9 +312,10 @@
                                     </div>
                                 </div>
 
-                                <!-- Progress Bar (Fake for visual running) -->
+                                <!-- Progress Bar -->
                                 <div v-if="task.status === 'running'"
-                                    class="absolute bottom-0 left-0 h-1 bg-blue-500 animate-[loading_2s_ease-in-out_infinite] w-full">
+                                    class="absolute bottom-0 left-0 h-1 bg-blue-500 animate-[loading_2s_linear_infinite] w-full"
+                                    style="animation: loading 2s linear infinite">
                                 </div>
                             </div>
                         </transition-group>
@@ -417,8 +458,9 @@
                 const runTask = async (task) => {
                     if (task.status === 'stopped') return;
 
+                    const now = new Date().toLocaleTimeString();
                     task.status = 'running';
-                    task.log = `🚀 Sending request... (Attempt ${task.retryCount + 1})`;
+                    task.log = `[${now}] 🚀 Sending request... (Attempt ${task.retryCount + 1})`;
 
                     try {
                         // Prepare payload
@@ -443,17 +485,19 @@
                         if (task.status === 'stopped') return; // Double check
 
                         if (data.status === 'success') {
+                            const ts = new Date().toLocaleTimeString();
                             task.status = 'success';
-                            task.log = '✅ Booking Successful!';
+                            task.log = `[${ts}] ✅ Booking Successful!`;
                             // Notification
                             new Notification("訂票成功!", { body: `${task.config.outbound_date} 的票訂到了!` });
                             fetchHistory();
                         } else {
                             // Failed
+                            const ts = new Date().toLocaleTimeString();
                             const msg = data.message;
                             const errors = data.data?.errors?.join(', ');
                             task.status = 'retrying';
-                            task.log = `⚠️ Failed: ${msg} ${errors ? '[' + errors + ']' : ''}. Retrying in 5s...`;
+                            task.log = `[${ts}] ⚠️ Failed: ${msg} ${errors ? '[' + errors + ']' : ''}. Retrying in 5s...`;
                             task.retryCount++;
 
                             // Schedule retry
@@ -465,8 +509,9 @@
                     } catch (e) {
                         if (task.status === 'stopped') return;
 
+                        const ts = new Date().toLocaleTimeString();
                         task.status = 'retrying';
-                        task.log = `❌ Error: ${e.message}. Retrying in 5s...`;
+                        task.log = `[${ts}] ❌ Error: ${e.message}. Retrying in 5s...`;
                         task.retryCount++;
                         task.timer = setTimeout(() => {
                             runTask(task);
@@ -489,9 +534,31 @@
                     return 'bg-gray-500';
                 };
 
+                // --- Persistence ---
+                const saveTasks = () => {
+                    localStorage.setItem('thsr_tasks', JSON.stringify(tasks.value.map(t => ({
+                        ...t,
+                        status: 'stopped', // Always save as stopped to prevent auto-run on reload
+                        log: 'Restored from history. Stopped.',
+                        timer: null
+                    }))));
+                };
+
+                const loadTasks = () => {
+                    const saved = localStorage.getItem('thsr_tasks');
+                    if (saved) {
+                        try {
+                            tasks.value = JSON.parse(saved);
+                        } catch (e) { console.error('Failed to load tasks', e); }
+                    }
+                };
+
+                watch(tasks, () => saveTasks(), { deep: true });
+
                 onMounted(() => {
                     fetchStations();
                     fetchHistory();
+                    loadTasks();
                     if (Notification.permission !== "granted") {
                         Notification.requestPermission();
                     }
