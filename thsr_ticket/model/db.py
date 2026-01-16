@@ -1,4 +1,5 @@
 import os
+import threading
 from typing import Mapping, List, Iterable, Any, NamedTuple
 
 from tinydb import TinyDB, Query
@@ -32,6 +33,7 @@ class ParamDB:
         db_dir = db_path[:db_path.rfind("/")]
         if not os.path.exists(db_dir):
             os.makedirs(db_dir)
+        self.lock = threading.Lock()
 
     def save(self, record: Record, ticket: ConfirmTicketModel) -> None:
         data = Record(
@@ -48,14 +50,17 @@ class ParamDB:
             record.elder_ticket_num,
             record.college_ticket_num
         )._asdict()  # type: ignore
-        with TinyDB(self.db_path, sort_keys=True, indent=4) as db:
-            hist = db.search(Query().personal_id == ticket.personal_id)
-            if self._compare_hist(data, hist) is None:
-                db.insert(data)
+        
+        with self.lock:
+            with TinyDB(self.db_path, sort_keys=True, indent=4) as db:
+                hist = db.search(Query().personal_id == ticket.personal_id)
+                if self._compare_hist(data, hist) is None:
+                    db.insert(data)
 
     def get_history(self) -> List[Record]:
-        with TinyDB(self.db_path) as db:
-            dicts = db.all()
+        with self.lock:
+            with TinyDB(self.db_path) as db:
+                dicts = db.all()
         return [Record(**d) for d in dicts]   # type: ignore
 
     def _compare_hist(self, data: Mapping[str, Any], hist: Iterable[Document]) -> int:

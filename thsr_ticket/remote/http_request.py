@@ -50,7 +50,16 @@ class HTTPRequest:
         )
 
 
+
 def parse_security_img_url(html: bytes) -> str:
     page = BeautifulSoup(html, features="html.parser")
     element = page.find(**BOOKING_PAGE["security_code_img"])
+    if element is None:
+        # Save html for debugging
+        debug_file = "debug_booking_page_fail.html"
+        with open(debug_file, "wb") as f:
+            f.write(html)
+        print(f"Failed to find security code image. Saved HTML to {debug_file}")
+        raise ValueError(f"Could not find security code image in response. See {debug_file}")
+        
     return HTTPConfig.BASE_URL + element["src"]

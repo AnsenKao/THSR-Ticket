@@ -28,8 +28,30 @@ class FirstPageFlow:
     def run(self) -> Tuple[Response, BookingModel, Record]:
         # First page. Booking options
         print('請稍等...')
-        book_page = self.client.request_booking_page().content
-        img_resp = self.client.request_security_code_img(book_page).content
+        
+        import time
+        max_retries = 20
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            book_page = self.client.request_booking_page().content
+            # Check for system busy marker
+            if b"system is busy" in book_page or b"\xe7\xb3\xbb\xe7\xb5\xb1\xe5\xbf\x99\xe7\xa2\x8c\xe4\xb8\xad" in book_page:
+                 print(f"System busy, retrying... ({retry_count + 1}/{max_retries})")
+                 time.sleep(1.5)
+                 retry_count += 1
+                 continue
+            
+            try:
+                img_resp = self.client.request_security_code_img(book_page).content
+                # If successful, break loop
+                break
+            except Exception as e:
+                print(f"Error parsing page (possibly busy or blocked): {e}. Retrying... ({retry_count + 1}/{max_retries})")
+                time.sleep(1.5)
+                retry_count += 1
+        else:
+             raise RuntimeError("Max retries exceeded for booking page. System might be down or busy.")
         page = BeautifulSoup(book_page, features='html.parser')
 
         # 如果沒有使用歷史紀錄，先詢問必要資訊
