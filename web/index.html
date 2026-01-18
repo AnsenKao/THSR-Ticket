@@ -411,14 +411,15 @@
                         timer: null
                     };
                     tasks.value.unshift(task);
+                    const taskProxy = tasks.value[0]; // Get reactive proxy
 
                     // Auto-start recommendation? Let's auto-start for convenience
                     // runTask(task); 
                     // Or keep stopped.
                     // Let's set to pending and run.
-                    task.status = 'pending';
-                    task.log = 'Queued...';
-                    runTask(task);
+                    taskProxy.status = 'pending';
+                    taskProxy.log = 'Queued...';
+                    runTask(taskProxy);
                 };
 
                 const removeTask = (id) => {
