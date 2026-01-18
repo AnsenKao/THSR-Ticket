@@ -498,17 +498,34 @@
                             const ts = new Date().toLocaleTimeString();
                             task.status = 'success';
                             task.log = `[${ts}] ✅ Booking Successful!`;
-                            // Notification
                             new Notification("訂票成功!", { body: `${task.config.outbound_date} 的票訂到了!` });
                             fetchHistory();
                         } else {
                             // Failed
                             const ts = new Date().toLocaleTimeString();
-                            const msg = data.message;
-                            const errors = data.data?.errors?.join(', ');
+                            const msg = data.message || '';
+                            const errors = data.data?.errors?.join(', ') || '';
+                            const fullMsg = msg + (errors ? ' ' + errors : '');
+
+                            // Check for known errors to suppress
+                            const knownErrors = [
+                                '售完', 'Sold out',
+                                'Preferred trains',
+                                '檢測碼', 'Captcha',
+                                '系統忙碌', 'System busy'
+                            ];
+                            const isKnown = knownErrors.some(k => fullMsg.includes(k));
+
                             task.status = 'retrying';
-                            task.log = `[${ts}] ⚠️ Failed: ${msg} ${errors ? '[' + errors + ']' : ''}. Retrying in 5s...`;
                             task.retryCount++;
+
+                            if (isKnown) {
+                                // Simplified log for known errors
+                                task.log = `[${ts}] ⏳ Scanning... (Attempt ${task.retryCount})`;
+                            } else {
+                                // unexpected error
+                                task.log = `[${ts}] ⚠️ Failed: ${fullMsg}. Retrying...`;
+                            }
 
                             // Schedule retry
                             task.timer = setTimeout(() => {
@@ -521,7 +538,9 @@
 
                         const ts = new Date().toLocaleTimeString();
                         task.status = 'retrying';
-                        task.log = `[${ts}] ❌ Error: ${e.message}. Retrying in 5s...`;
+                        // Network errors etc might be worth showing, or mask them too?
+                        // Let's mask purely network/timeout if needed, but for now show real exceptions.
+                        task.log = `[${ts}] ❌ Error: ${e.message}. Retrying...`;
                         task.retryCount++;
                         task.timer = setTimeout(() => {
                             runTask(task);

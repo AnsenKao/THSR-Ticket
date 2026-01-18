@@ -207,8 +207,19 @@ def book_ticket(req: BookingRequest):
         return BookingResponse(status="success", message="Booking Submitted", data=data)
 
     except Exception as e:
-        logger.error(f"Booking error: {e}", exc_info=True)
-        return BookingResponse(status="error", message=str(e))
+        error_msg = str(e)
+        # Check for known errors to suppress stack trace
+        known_errors = [
+            "Preferred trains", "Tailless-Sold out", "system is busy", 
+            "系統忙碌", "sold out", "不再提供網路訂位",
+            "No available trains"
+        ]
+        if any(k in error_msg for k in known_errors):
+            logger.warning(f"Booking suppressed error: {error_msg}")
+        else:
+            logger.error(f"Booking error: {e}", exc_info=True)
+            
+        return BookingResponse(status="error", message=error_msg)
 
 from fastapi.staticfiles import StaticFiles
 try:
