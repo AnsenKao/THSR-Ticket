@@ -183,6 +183,13 @@
                             </div>
                         </div>
 
+                        <!-- Preferred Train -->
+                        <div class="space-y-1">
+                            <label class="block text-gray-400 text-xs ml-1">Preferred Train No. (Optional)</label>
+                            <input v-model="form.preferred_trains" type="text"
+                                placeholder="e.g. 101, 103 (comma separated)" class="soft-input font-mono">
+                        </div>
+
                         <!-- Extended Tickets -->
                         <div class="grid grid-cols-2 gap-3">
                             <div class="space-y-1">
@@ -349,6 +356,7 @@
                     disabled_ticket_num_val: 0,
                     elder_ticket_num_val: 0,
                     college_ticket_num_val: 0,
+                    preferred_trains: '',
                 });
 
                 const commonTimes = [
@@ -471,7 +479,8 @@
                             disabled_ticket_num: `${task.config.disabled_ticket_num_val || 0}W`,
                             elder_ticket_num: `${task.config.elder_ticket_num_val || 0}E`,
                             college_ticket_num: `${task.config.college_ticket_num_val || 0}P`,
-                            outbound_delay_time: String(task.config.outbound_delay_time)
+                            outbound_delay_time: String(task.config.outbound_delay_time),
+                            preferred_trains: task.config.preferred_trains
                         };
 
                         const res = await fetch('/api/book', {

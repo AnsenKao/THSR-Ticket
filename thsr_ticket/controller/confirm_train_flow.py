@@ -35,4 +35,17 @@ class ConfirmTrainFlow:
         return resp, confirm_model
 
     def select_available_trains(self, trains: List[Train], default_value: int = 1) -> Train:
+        if self.record and self.record.preferred_trains:
+            # Create a set for O(1) lookup, handling potential whitespace
+            preferred = {t.strip() for t in self.record.preferred_trains if t.strip()}
+            
+            if preferred:
+                for train in trains:
+                    if str(train.id) in preferred:
+                        return train.form_value
+                
+                # If we have preferences but found no match among available trains
+                raise ValueError(f"Preferred trains {preferred} not found in available list: {[t.id for t in trains]}")
+
+        # Default behavior: select the first one
         return trains[0].form_value

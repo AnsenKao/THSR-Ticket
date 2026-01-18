@@ -63,6 +63,9 @@ class BookingRequest(BaseModel):
     
     # Max delay time (Latest acceptable arrival/departure? Logic says departure hour)
     outbound_delay_time: Optional[str] = "23" 
+    
+    # Optional preferred train numbers (comma separated)
+    preferred_trains: Optional[str] = None 
 
 class BookingResponse(BaseModel):
     status: str
@@ -139,6 +142,7 @@ def book_ticket(req: BookingRequest):
         elder_ticket_num=req.elder_ticket_num,
         college_ticket_num=req.college_ticket_num,
         outbound_delay_time=req.outbound_delay_time,
+        preferred_trains=req.preferred_trains.split(',') if req.preferred_trains else None,
     )
     
     # Check if seat_prefer needs to be handled via wrapper if Record doesn't support it

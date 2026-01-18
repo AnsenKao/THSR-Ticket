@@ -23,6 +23,7 @@ class Record(NamedTuple):
     disabled_ticket_num: str = None
     elder_ticket_num: str = None
     college_ticket_num: str = None
+    preferred_trains: Iterable[str] = None
 
 
 class ParamDB:
@@ -48,7 +49,8 @@ class ParamDB:
             record.child_ticket_num,
             record.disabled_ticket_num,
             record.elder_ticket_num,
-            record.college_ticket_num
+            record.college_ticket_num,
+            record.preferred_trains
         )._asdict()  # type: ignore
         
         with self.lock:
