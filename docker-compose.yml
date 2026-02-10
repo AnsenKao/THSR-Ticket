@@ -1,0 +1,10 @@
+services:
+  thsr-ticket:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./thsr_ticket:/app/thsr_ticket
+      - ./web:/app/web
+    environment:
+      - PYTHONUNBUFFERED=1
