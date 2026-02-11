@@ -212,7 +212,8 @@ def book_ticket(req: BookingRequest):
         known_errors = [
             "Preferred trains", "Tailless-Sold out", "system is busy", 
             "系統忙碌", "sold out", "不再提供網路訂位",
-            "No available trains", "太晚了", "超過限制時間"
+            "No available trains", "太晚了", "超過限制時間", 
+            "timed out", "timestamp"
         ]
         if any(k in error_msg for k in known_errors):
             logger.warning(f"Booking suppressed error: {error_msg}")

@@ -23,22 +23,23 @@ class HTTPRequest:
         }
 
     def request_booking_page(self) -> Response:
-        return self.sess.get(HTTPConfig.BOOKING_PAGE_URL, headers=self.common_head_html, allow_redirects=True)
+        return self.sess.get(HTTPConfig.BOOKING_PAGE_URL, headers=self.common_head_html, allow_redirects=True, timeout=HTTPConfig.HTTP_TIMEOUT)
 
     def request_security_code_img(self, book_page: bytes) -> Response:
         img_url = parse_security_img_url(book_page)
-        return self.sess.get(img_url, headers=self.common_head_html)
+        return self.sess.get(img_url, headers=self.common_head_html, timeout=HTTPConfig.HTTP_TIMEOUT)
 
     def submit_booking_form(self, params: Mapping[str, Any]) -> Response:
         url = HTTPConfig.SUBMIT_FORM_URL.format(self.sess.cookies["JSESSIONID"])
-        return self.sess.post(url, headers=self.common_head_html, params=params, allow_redirects=True)
+        return self.sess.post(url, headers=self.common_head_html, params=params, allow_redirects=True, timeout=HTTPConfig.HTTP_TIMEOUT)
 
     def submit_train(self, params: Mapping[str, Any]) -> Response:
         return self.sess.post(
             HTTPConfig.CONFIRM_TRAIN_URL,
             headers=self.common_head_html,
             params=params,
-            allow_redirects=True
+            allow_redirects=True,
+            timeout=HTTPConfig.HTTP_TIMEOUT
         )
 
     def submit_ticket(self, params: Mapping[str, Any]) -> Response:
@@ -46,7 +47,8 @@ class HTTPRequest:
             HTTPConfig.CONFIRM_TICKET_URL,
             headers=self.common_head_html,
             params=params,
-            allow_redirects=True
+            allow_redirects=True,
+            timeout=HTTPConfig.HTTP_TIMEOUT
         )
 
 
