@@ -484,11 +484,21 @@
                             preferred_trains: task.config.preferred_trains
                         };
 
-                        const res = await fetch('/api/book', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
+                        // AbortController: 30s timeout 確保後端無回應時前端不會無限 hang
+                        const controller = new AbortController();
+                        const fetchTimeout = setTimeout(() => controller.abort(), 30000);
+
+                        let res;
+                        try {
+                            res = await fetch('/api/book', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload),
+                                signal: controller.signal
+                            });
+                        } finally {
+                            clearTimeout(fetchTimeout);
+                        }
 
                         const data = await res.json();
 
@@ -539,10 +549,14 @@
 
                         const ts = new Date().toLocaleTimeString();
                         task.status = 'retrying';
-                        // Network errors etc might be worth showing, or mask them too?
-                        // Let's mask purely network/timeout if needed, but for now show real exceptions.
-                        task.log = `[${ts}] ❌ Error: ${e.message}. Retrying...`;
                         task.retryCount++;
+
+                        if (e.name === 'AbortError') {
+                            // fetch 被 AbortController 中止（30s timeout）
+                            task.log = `[${ts}] ⏱️ Request timed out. Retrying...`;
+                        } else {
+                            task.log = `[${ts}] ❌ Error: ${e.message}. Retrying...`;
+                        }
                         task.timer = setTimeout(() => {
                             runTask(task);
                         }, 5000);
