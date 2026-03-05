@@ -486,7 +486,7 @@
 
                         // AbortController: 30s timeout 確保後端無回應時前端不會無限 hang
                         const controller = new AbortController();
-                        const fetchTimeout = setTimeout(() => controller.abort(), 15000);
+                        const fetchTimeout = setTimeout(() => controller.abort(), 120000);
 
                         let res;
                         try {
