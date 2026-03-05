@@ -10,7 +10,7 @@ from thsr_ticket.configs.web.parse_html_element import BOOKING_PAGE
 
 
 class HTTPRequest:
-    def __init__(self, max_retries: int = 3) -> None:
+    def __init__(self, max_retries: int = 0) -> None:
         self.sess = requests.Session()
         self.sess.mount("https://", HTTPAdapter(max_retries=max_retries))
 
