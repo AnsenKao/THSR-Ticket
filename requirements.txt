@@ -13,3 +13,4 @@ setuptools
 tinydb==4.8.2
 torch
 torchvision
+playwright>=1.40.0

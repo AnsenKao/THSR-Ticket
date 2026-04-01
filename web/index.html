@@ -486,7 +486,7 @@
 
                         // AbortController: 30s timeout 確保後端無回應時前端不會無限 hang
                         const controller = new AbortController();
-                        const fetchTimeout = setTimeout(() => controller.abort(), 12000);
+                        const fetchTimeout = setTimeout(() => controller.abort(), 15000);
 
                         let res;
                         try {
@@ -533,7 +533,7 @@
 
                             if (isKnown) {
                                 // Simplified log for known errors
-                                task.log = `[${ts}] ⏳ Scanning... (Attempt ${task.retryCount})`;
+                                task.log = `[${ts}] ⏳ Scanning... (Attempt ${task.retryCount}) | ${fullMsg}`;
                             } else {
                                 // unexpected error
                                 task.log = `[${ts}] ⚠️ Failed: ${fullMsg}. Retrying...`;

@@ -17,6 +17,7 @@ from thsr_ticket.controller.confirm_ticket_flow import ConfirmTicketFlow
 from thsr_ticket.view_model.booking_result import BookingResult
 from thsr_ticket.ml.model import CaptchaSolver
 from thsr_ticket.remote.http_request import HTTPRequest
+from thsr_ticket.remote.playwright_request import PlaywrightHTTPRequest
 from thsr_ticket.controller.non_interactive_flows import NonInteractiveFirstPageFlow
 from thsr_ticket.view_model.error_feedback import ErrorFeedback
 
@@ -162,7 +163,7 @@ def book_ticket(req: BookingRequest):
     # 2. Run Flow
     # We replicate BookingFlow.run but use NonInteractiveFirstPageFlow
     try:
-        client = HTTPRequest()
+        client = PlaywrightHTTPRequest()
         error_feedback = ErrorFeedback()
         
         def check_error(resp_content):
@@ -179,7 +180,7 @@ def book_ticket(req: BookingRequest):
              return BookingResponse(status="error", message="Booking failed at step 1 (Options)", data={"html": str(book_resp.content), "errors": errs})
 
         # Step 2: Confirm Train
-        # We need ConfirmTrainFlow to auto-select. 
+        # We need ConfirmTrainFlow to auto-select.
         # By default currently logic selects first one.
         train_resp, train_model = ConfirmTrainFlow(client, book_resp, record=updated_record).run()
         if errs := check_error(train_resp.content):
@@ -203,16 +204,18 @@ def book_ticket(req: BookingRequest):
         
         # Save history
         db.save(updated_record, ticket_model)
-        
-        return BookingResponse(status="success", message="Booking Submitted", data=data)
+
+        response = BookingResponse(status="success", message="Booking Submitted", data=data)
+        logger.info(f"Booking SUCCESS: {response}")
+        return response
 
     except Exception as e:
         error_msg = str(e)
         # Check for known errors to suppress stack trace
         known_errors = [
-            "Preferred trains", "Tailless-Sold out", "system is busy", 
+            "Preferred trains", "Tailless-Sold out", "system is busy",
             "系統忙碌", "sold out", "不再提供網路訂位",
-            "No available trains", "太晚了", "超過限制時間", 
+            "No available trains", "太晚了", "超過限制時間",
             "timed out", "timestamp", "Max retries exceeded"
         ]
         if any(k in error_msg for k in known_errors):

@@ -8,3 +8,5 @@ services:
       - ./web:/app/web
     environment:
       - PYTHONUNBUFFERED=1
+      - DISPLAY=:99
+    shm_size: '2gb'
