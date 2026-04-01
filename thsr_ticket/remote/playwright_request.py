@@ -26,9 +26,14 @@ class PlaywrightHTTPRequest:
 
     def request_booking_page(self) -> PlaywrightResponse:
         self._page.goto(HTTPConfig.BOOKING_PAGE_URL, wait_until="domcontentloaded", timeout=HTTPConfig.HTTP_TIMEOUT * 1000)
+        # 若出現個人資料使用說明同意視窗，點擊「我同意」關閉它
+        consent_btn = self._page.locator("button:has-text('我同意')")
+        if consent_btn.is_visible():
+            consent_btn.click()
         return PlaywrightResponse(self._page.content().encode("utf-8"))
 
     def request_security_code_img(self, book_page: bytes) -> PlaywrightResponse:
+        # 明確發一次 GET 請求取得驗證碼圖片，確保伺服器 session 對應的是這次的驗證碼
         img_url = parse_security_img_url(book_page)
         resp = self._page.request.get(img_url, timeout=HTTPConfig.HTTP_TIMEOUT * 1000)
         return PlaywrightResponse(resp.body())
