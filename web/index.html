@@ -540,9 +540,10 @@
                             }
 
                             // Schedule retry
+                            const delay = 15000 + Math.random() * 5000; // 15~20s
                             task.timer = setTimeout(() => {
                                 runTask(task);
-                            }, 5000); // 5 seconds delay
+                            }, delay);
                         }
 
                     } catch (e) {
@@ -558,9 +559,10 @@
                         } else {
                             task.log = `[${ts}] ❌ Error: ${e.message}. Retrying...`;
                         }
+                        const delay = 15000 + Math.random() * 5000; // 15~20s
                         task.timer = setTimeout(() => {
                             runTask(task);
-                        }, 5000);
+                        }, delay);
                     }
                 };
 
