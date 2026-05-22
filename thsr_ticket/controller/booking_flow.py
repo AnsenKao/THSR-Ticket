@@ -23,12 +23,24 @@ class BookingFlow:
         self.record = record
         self.captcha_solver = captcha_solver
 
+    _CAPTCHA_ERROR_KEYWORDS = ("驗證碼", "security code", "captcha", "verification code")
+
     def run(self) -> Response:
-        # First page. Booking options
-        book_resp, book_model, updated_record = FirstPageFlow(client=self.client, record=self.record, captcha_solver=self.captcha_solver).run()
-        self.record = updated_record
-        if self.show_error(book_resp.content):
-            return book_resp
+        # First page. Booking options — retry same session only for captcha errors
+        CAPTCHA_MAX_RETRIES = 3
+        for attempt in range(CAPTCHA_MAX_RETRIES):
+            book_resp, book_model, updated_record = FirstPageFlow(client=self.client, record=self.record, captcha_solver=self.captcha_solver).run()
+            self.record = updated_record
+            errors = ErrorFeedback().parse(book_resp.content)
+            if not errors:
+                break
+            self.show_error_msg.show(errors)
+            is_captcha = any(
+                any(k in e.msg.lower() for k in self._CAPTCHA_ERROR_KEYWORDS)
+                for e in errors
+            )
+            if not is_captcha or attempt == CAPTCHA_MAX_RETRIES - 1:
+                return book_resp
 
         # Second page. Train confirmation
         train_resp, train_model = ConfirmTrainFlow(self.client, book_resp, record=self.record).run()
