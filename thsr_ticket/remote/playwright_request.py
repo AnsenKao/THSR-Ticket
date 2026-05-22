@@ -5,6 +5,19 @@ from playwright.sync_api import sync_playwright
 from thsr_ticket.configs.web.http_config import HTTPConfig
 from thsr_ticket.remote.http_request import parse_security_img_url
 
+# 清除 Playwright 自動化特徵，減少 Akamai Bot Manager 偵測
+_STEALTH_SCRIPT = """
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+Object.defineProperty(navigator, 'languages', { get: () => ['zh-TW', 'zh', 'en-US', 'en'] });
+window.chrome = { runtime: {} };
+const _origPermQuery = navigator.permissions.query.bind(navigator.permissions);
+navigator.permissions.query = (p) =>
+    p.name === 'notifications'
+        ? Promise.resolve({ state: Notification.permission })
+        : _origPermQuery(p);
+"""
+
 
 class PlaywrightResponse:
     def __init__(self, content: bytes) -> None:
@@ -18,10 +31,14 @@ class PlaywrightHTTPRequest:
         self._context = self._browser.new_context(
             user_agent=HTTPConfig.HTTPHeader.USER_AGENT,
             locale="zh-TW",
+            timezone_id="Asia/Taipei",
+            viewport={"width": 1280, "height": 800},
             extra_http_headers={
                 "Accept-Language": HTTPConfig.HTTPHeader.ACCEPT_LANGUAGE,
+                "Upgrade-Insecure-Requests": "1",
             },
         )
+        self._context.add_init_script(_STEALTH_SCRIPT)
         self._page = self._context.new_page()
 
     def request_booking_page(self) -> PlaywrightResponse:
