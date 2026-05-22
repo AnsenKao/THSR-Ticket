@@ -177,19 +177,33 @@
             </div>
           </div>
 
-          <!-- 送出 -->
-          <button type="submit" :disabled="loading"
-            class="w-full mt-2 py-3 rounded-xl font-semibold text-white transition-all
-              bg-gradient-to-r from-blue-600 to-indigo-600
-              hover:from-blue-500 hover:to-indigo-500
-              disabled:opacity-50 disabled:cursor-not-allowed
-              active:scale-[0.99] shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2">
-            <svg v-if="loading" class="spinner w-4 h-4" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-            </svg>
-            <span>{{ loading ? '訂票中...' : '立即訂票' }}</span>
-          </button>
+          <!-- 送出 / 停止 -->
+          <div class="flex gap-2 mt-2">
+            <button type="submit" :disabled="booking.active"
+              class="flex-1 py-3 rounded-xl font-semibold text-white transition-all
+                bg-gradient-to-r from-blue-600 to-indigo-600
+                hover:from-blue-500 hover:to-indigo-500
+                disabled:opacity-40 disabled:cursor-not-allowed
+                active:scale-[0.99] shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2">
+              <svg v-if="booking.active" class="spinner w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              <span>{{ booking.active ? '搶票中...' : '開始搶票' }}</span>
+            </button>
+            <button v-if="booking.active" type="button" @click="stopBooking"
+              class="px-5 py-3 rounded-xl font-semibold text-white bg-amber-600 hover:bg-amber-500
+                transition-all active:scale-[0.99]">
+              停止
+            </button>
+          </div>
+
+          <!-- 搶票狀態 -->
+          <div v-if="booking.active || (booking.retryCount > 0 && !result)"
+            class="mt-2 bg-slate-800/80 rounded-xl px-4 py-3 font-mono text-xs text-slate-300 flex items-center justify-between gap-3">
+            <span class="truncate">{{ booking.log }}</span>
+            <span class="text-slate-500 shrink-0">{{ booking.retryCount }} 次</span>
+          </div>
         </form>
       </div>
 
@@ -260,8 +274,23 @@ createApp({
   setup() {
     const stations = ref([]);
     const history = ref([]);
-    const loading = ref(false);
     const result = ref(null);
+
+    // 搶票狀態
+    const booking = ref({
+      active: false,
+      retryCount: 0,
+      log: '',
+      timer: null,
+    });
+
+    const KNOWN_ERRORS = [
+      'Preferred trains', 'Sold out', 'sold out', 'Tailless-Sold out',
+      'Captcha', '檢測碼', 'system is busy', '系統忙碌',
+      '太晚了', '超過限制時間', '不再提供網路訂位',
+      'No available trains', 'timed out', 'Timeout', 'exceeded',
+      'Max retries exceeded', 'timestamp',
+    ];
 
     // 產生 05:00 ~ 23:30 每半小時一個選項
     const timeOptions = (() => {
@@ -386,12 +415,9 @@ createApp({
       return isNaN(n) ? null : n;
     };
 
-    const submitBooking = async () => {
-      loading.value = true;
-      result.value = null;
-
+    const buildPayload = () => {
       const f = form.value;
-      const payload = {
+      return {
         personal_id: f.personal_id,
         phone: f.phone,
         start_station: f.start_station,
@@ -407,21 +433,77 @@ createApp({
         seat_prefer: f.seat_prefer,
         preferred_trains: f.preferred_trains || null,
       };
+    };
 
+    const stopBooking = () => {
+      booking.value.active = false;
+      clearTimeout(booking.value.timer);
+      booking.value.log = '已手動停止。';
+    };
+
+    const runOnce = async (payload) => {
+      const controller = new AbortController();
+      const fetchTimeout = setTimeout(() => controller.abort(), 60000);
       try {
         const res = await fetch('/api/book', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+          signal: controller.signal,
         });
-        const data = await res.json();
-        result.value = data;
-        fetchHistory();
-      } catch (e) {
-        result.value = { status: 'error', message: e.message };
+        return await res.json();
       } finally {
-        loading.value = false;
+        clearTimeout(fetchTimeout);
       }
+    };
+
+    const scheduleRetry = (payload) => {
+      const delay = 15000 + Math.random() * 5000;
+      booking.value.timer = setTimeout(() => attempt(payload), delay);
+    };
+
+    const attempt = async (payload) => {
+      if (!booking.value.active) return;
+      const b = booking.value;
+      const ts = new Date().toLocaleTimeString();
+      b.retryCount++;
+      b.log = `[${ts}] 第 ${b.retryCount} 次嘗試中...`;
+
+      try {
+        const data = await runOnce(payload);
+        if (!booking.value.active) return;
+
+        if (data.status === 'success') {
+          b.active = false;
+          b.log = `[${ts}] 訂票成功！`;
+          result.value = data;
+          fetchHistory();
+          if (Notification.permission === 'granted') {
+            new Notification('訂票成功！', { body: `${payload.outbound_date} 的票搶到了` });
+          }
+        } else {
+          const msg = data.message || '';
+          const isKnown = KNOWN_ERRORS.some(k => msg.includes(k));
+          const ts2 = new Date().toLocaleTimeString();
+          b.log = isKnown
+            ? `[${ts2}] 掃描中（第 ${b.retryCount} 次）｜${msg.split('\n')[0]}`
+            : `[${ts2}] 失敗：${msg.split('\n')[0]}，重試中...`;
+          scheduleRetry(payload);
+        }
+      } catch (e) {
+        if (!booking.value.active) return;
+        const ts2 = new Date().toLocaleTimeString();
+        b.log = e.name === 'AbortError'
+          ? `[${ts2}] 請求逾時，重試中...`
+          : `[${ts2}] 錯誤：${e.message}，重試中...`;
+        scheduleRetry(payload);
+      }
+    };
+
+    const submitBooking = () => {
+      result.value = null;
+      booking.value = { active: true, retryCount: 0, log: '準備中...', timer: null };
+      attempt(buildPayload());
     };
 
     onMounted(() => {
@@ -430,10 +512,10 @@ createApp({
     });
 
     return {
-      stations, history, loading, result,
+      stations, history, booking, result,
       form, timeOptions, ticketTypes,
       getStationName, formatThsrTime,
-      fetchHistory, loadHistory, submitBooking,
+      fetchHistory, loadHistory, submitBooking, stopBooking,
     };
   }
 }).mount('#app');
