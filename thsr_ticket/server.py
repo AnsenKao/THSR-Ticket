@@ -88,6 +88,20 @@ def get_history():
     return [r._asdict() for r in db.get_history()]
 
 
+def convert_delay_time(time_str: str) -> str:
+    """Convert delay time to hour-only string expected by confirm_train_flow.
+    Accepts both old format "23" and new format "2300"/"730".
+    """
+    if not time_str:
+        return "23"
+    try:
+        if len(time_str) >= 3:
+            return str(int(time_str[:-2]))
+        return str(int(time_str))
+    except ValueError:
+        return "23"
+
+
 def convert_time_format(time_str: str) -> str:
     """
     Convert 24h time string (e.g. "1700", "0630", "1200")
@@ -149,7 +163,7 @@ def book_ticket(req: BookingRequest):
         disabled_ticket_num=req.disabled_ticket_num,
         elder_ticket_num=req.elder_ticket_num,
         college_ticket_num=req.college_ticket_num,
-        outbound_delay_time=req.outbound_delay_time,
+        outbound_delay_time=convert_delay_time(req.outbound_delay_time),
         preferred_trains=req.preferred_trains.split(",")
         if req.preferred_trains
         else None,
@@ -168,6 +182,9 @@ def book_ticket(req: BookingRequest):
             return getattr(self._record, name)
 
     wrapped_record = RecordWrapper(record, req.seat_prefer)
+
+    # Save on submit regardless of result
+    db.save_record(wrapped_record)
 
     # 2. Run Flow
     # We replicate BookingFlow.run but use NonInteractiveFirstPageFlow

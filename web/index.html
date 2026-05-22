@@ -1,625 +1,442 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>高鐵自動搶票系統</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap"
-        rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>高鐵訂票系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Noto Sans TC', sans-serif; }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
+    .field-input {
+      width: 100%;
+      background: rgba(30, 41, 59, 0.8);
+      color: #e2e8f0;
+      border: 1px solid rgba(100, 116, 139, 0.4);
+      border-radius: 0.625rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.9rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .field-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+    select.field-input { appearance: none; cursor: pointer; }
 
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.1);
-        }
+    .card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 1.25rem;
+      backdrop-filter: blur(12px);
+    }
 
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-        }
+    .label {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-bottom: 0.25rem;
+      display: block;
+    }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
+    .divider {
+      border: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      margin: 1rem 0;
+    }
 
-        .soft-input {
-            width: 100%;
-            background-color: rgba(55, 65, 81, 0.5);
-            color: white;
-            border-radius: 0.75rem;
-            padding: 0.5rem 1rem;
-            border: 1px solid rgb(75, 85, 99);
-            transition: all 0.3s;
-            font-size: 0.95rem;
-        }
+    .hist-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255,255,255,0.05);
+      cursor: pointer;
+      transition: background 0.15s;
+      font-size: 0.8rem;
+    }
+    .hist-item:hover { background: rgba(59, 130, 246, 0.15); border-color: rgba(59,130,246,0.3); }
 
-        .soft-input:focus {
-            border-color: rgb(96, 165, 250);
-            background-color: rgb(55, 65, 81);
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
-        }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 0.8s linear infinite; }
 
-        .task-card {
-            transition: all 0.3s ease;
-        }
-
-        .task-card:hover {
-            transform: translateY(-2px);
-        }
-
-        .btn-pulse {
-            animation: pulse-border 2s infinite;
-        }
-
-        @keyframes pulse-border {
-            0% {
-                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
-            }
-
-            70% {
-                box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-            }
-        }
-
-        @keyframes loading {
-            0% {
-                transform: translateX(-100%);
-            }
-
-            100% {
-                transform: translateX(100%);
-            }
-        }
-    </style>
+    .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+    .fade-enter-from, .fade-leave-to { opacity: 0; }
+  </style>
 </head>
+<body class="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 min-h-screen text-slate-200">
+<div id="app" class="max-w-5xl mx-auto px-4 py-8">
 
-<body
-    class="bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 text-gray-100 min-h-screen selection:bg-blue-500 selection:text-white">
-    <div id="app" class="container mx-auto px-4 py-8 max-w-7xl">
-        <!-- Header -->
-        <header class="mb-8 text-center flex justify-between items-center">
-            <h1
-                class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-indigo-400 tracking-tight">
-                高鐵自動搶票系統 🚀
-            </h1>
-            <div class="text-xs text-gray-400 border border-gray-700 rounded-full px-3 py-1">
-                v2.1 Batch Mode
+  <!-- Header -->
+  <header class="mb-8 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-white tracking-tight">台灣高鐵訂票系統</h1>
+      <p class="text-xs text-slate-500 mt-0.5">自動解 CAPTCHA・智慧選車次</p>
+    </div>
+    <span class="text-xs border border-slate-700 text-slate-500 rounded-full px-3 py-1">v3.0</span>
+  </header>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- 左側：訂票表單 -->
+    <div class="lg:col-span-2 space-y-4">
+      <div class="card p-6">
+        <h2 class="text-base font-semibold text-white mb-5 flex items-center gap-2">
+          <span class="w-1 h-4 bg-blue-500 rounded-full"></span>訂票資訊
+        </h2>
+
+        <form @submit.prevent="submitBooking" class="space-y-4">
+
+          <!-- 個人資料 -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">身分證號碼</label>
+              <input v-model="form.personal_id" type="text" placeholder="A123456789"
+                class="field-input font-mono" required autocomplete="off">
             </div>
-        </header>
-
-        <!-- Main Content -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-            <!-- Left Panel: Form (Compact) -->
-            <div class="lg:col-span-4 space-y-4">
-                <div class="bg-gray-800/40 rounded-3xl p-6 border border-white/10 shadow-xl backdrop-blur-md">
-                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-white/90">
-                        <span class="bg-blue-500/20 text-blue-300 p-2 rounded-lg text-sm">📝</span>
-                        新增搶票任務
-                    </h2>
-
-                    <form @submit.prevent="addToQueue" class="space-y-4">
-                        <!-- Personal Info -->
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">ID</label>
-                                <input v-model="form.personal_id" type="text" placeholder="ID"
-                                    class="soft-input font-mono" required>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">Phone</label>
-                                <input v-model="form.phone" type="text" placeholder="Phone"
-                                    class="soft-input font-mono">
-                            </div>
-                        </div>
-
-                        <!-- Stations -->
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">From</label>
-                                <select v-model="form.start_station" class="soft-input appearance-none" required>
-                                    <option v-for="s in stations" :value="s.id">{{ s.name }}</option>
-                                </select>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">To</label>
-                                <select v-model="form.dest_station" class="soft-input appearance-none" required>
-                                    <option v-for="s in stations" :value="s.id">{{ s.name }}</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Date & Time -->
-                        <div class="space-y-1">
-                            <label class="block text-gray-400 text-xs ml-1">Date</label>
-                            <input v-model="form.outbound_date" type="date" class="soft-input" required>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">Time</label>
-                                <select v-model="form.outbound_time" class="soft-input appearance-none" required>
-                                    <option v-for="t in timeOptions" :value="t.val">{{ t.label }}</option>
-                                </select>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">Delay(Hr)</label>
-                                <select v-model="form.outbound_delay_time" class="soft-input appearance-none">
-                                    <option v-for="h in 24" :value="h-1">{{ h-1 }}:00</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Tickets Quick Select -->
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">Adult</label>
-                                <select v-model="form.adult_num_val" class="soft-input appearance-none">
-                                    <option v-for="n in 11" :value="n-1">{{ n-1 }} 張</option>
-                                </select>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">Seat</label>
-                                <select v-model="form.seat_prefer" class="soft-input appearance-none">
-                                    <option value="radio16">無</option>
-                                    <option value="radio17">靠窗</option>
-                                    <option value="radio18">走道</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Preferred Train -->
-                        <div class="space-y-1">
-                            <label class="block text-gray-400 text-xs ml-1">Preferred Train No. (Optional)</label>
-                            <input v-model="form.preferred_trains" type="text"
-                                placeholder="e.g. 101, 103 (comma separated)" class="soft-input font-mono">
-                        </div>
-
-                        <!-- Extended Tickets -->
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">Child</label>
-                                <select v-model="form.child_ticket_num_val" class="soft-input appearance-none">
-                                    <option v-for="n in 10" :value="n-1">{{ n-1 }} 張</option>
-                                </select>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">Elder</label>
-                                <select v-model="form.elder_ticket_num_val" class="soft-input appearance-none">
-                                    <option v-for="n in 10" :value="n-1">{{ n-1 }} 張</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">Disabled</label>
-                                <select v-model="form.disabled_ticket_num_val" class="soft-input appearance-none">
-                                    <option v-for="n in 10" :value="n-1">{{ n-1 }} 張</option>
-                                </select>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="block text-gray-400 text-xs ml-1">College</label>
-                                <select v-model="form.college_ticket_num_val" class="soft-input appearance-none">
-                                    <option v-for="n in 10" :value="n-1">{{ n-1 }} 張</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Advanced Toggle (Hidden for now to keep simple, can add later) -->
-
-                        <button type="submit"
-                            class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-blue-500/20 transform transition-all hover:scale-[1.02] active:scale-95 flex justify-center items-center gap-2 mt-4">
-                            <span>加入搶票排程 ➕</span>
-                        </button>
-                    </form>
-                </div>
-
-                <!-- History (Small) -->
-                <div class="bg-gray-800/40 rounded-3xl p-6 border border-white/10 shadow-lg backdrop-blur-md">
-                    <h3 class="text-sm font-bold text-gray-400 mb-2">歷史紀錄 ({{ history.length }})</h3>
-                    <div class="h-40 overflow-y-auto custom-scrollbar space-y-2 pr-1">
-                        <div v-for="(h, idx) in history" :key="idx" @click="loadHistory(h)"
-                            class="text-xs bg-gray-700/30 p-2 rounded-lg border border-white/5 hover:bg-gray-700 cursor-pointer flex justify-between">
-                            <span>{{ h.outbound_date }} {{ h.outbound_time }}</span>
-                            <span class="text-blue-300">{{ getStationName(h.start_station) }}➝{{
-                                getStationName(h.dest_station) }}</span>
-                        </div>
-                    </div>
-                </div>
+            <div>
+              <label class="label">手機號碼</label>
+              <input v-model="form.phone" type="text" placeholder="0912345678"
+                class="field-input font-mono" autocomplete="off">
             </div>
+          </div>
 
-            <!-- Right Panel: Task Queue & Logs -->
-            <div class="lg:col-span-8 flex flex-col gap-6">
-                <!-- Active Tasks -->
-                <div
-                    class="bg-gray-800/40 rounded-3xl p-6 border border-white/10 shadow-2xl backdrop-blur-md flex-1 min-h-[500px] flex flex-col">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xl font-bold flex items-center gap-2 text-white/90">
-                            <span class="bg-emerald-500/20 text-emerald-300 p-2 rounded-lg text-sm">⚡</span>
-                            搶票排程 ({{ tasks.length }})
-                        </h2>
-                        <div class="space-x-2">
-                            <button @click="startAll" v-if="tasks.some(t => t.status === 'stopped')"
-                                class="text-xs bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg transition-colors">
-                                全部開始 ▶
-                            </button>
-                            <button @click="stopAll"
-                                v-if="tasks.some(t => t.status === 'running' || t.status === 'retrying')"
-                                class="text-xs bg-amber-600 hover:bg-amber-500 px-3 py-1.5 rounded-lg transition-colors">
-                                全部暫停 ⏸
-                            </button>
-                        </div>
-                    </div>
+          <hr class="divider">
 
-                    <div v-if="tasks.length === 0"
-                        class="flex-1 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-700 rounded-2xl">
-                        <div class="text-4xl mb-2">💤</div>
-                        <p>目前沒有任務，請從左側加入</p>
-                    </div>
-
-                    <div v-else class="space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-2">
-                        <transition-group name="list">
-                            <div v-for="task in tasks" :key="task.id"
-                                :class="['task-card p-4 rounded-xl border flex flex-col gap-3 relative overflow-hidden', getStatusStyle(task.status)]">
-
-                                <!-- Header Row -->
-                                <div class="flex justify-between items-start z-10">
-                                    <div class="flex items-center gap-3">
-                                        <div :class="['w-2 h-12 rounded-full', getStatusIndicator(task.status)]"></div>
-                                        <div>
-                                            <div class="font-bold text-lg flex items-center gap-2">
-                                                {{ task.config.outbound_date }}
-                                                <span class="text-sm bg-black/20 px-2 py-0.5 rounded">{{
-                                                    task.config.outbound_time }}</span>
-                                            </div>
-                                            <div class="text-sm opacity-80 flex items-center gap-1">
-                                                {{ getStationName(task.config.start_station) }} ➝ {{
-                                                getStationName(task.config.dest_station) }}
-                                                <span class="mx-1">•</span>
-                                                {{ task.config.adult_num_val }}人
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <button @click="toggleTask(task)"
-                                            :class="['p-2 rounded-lg transition-colors', task.status === 'running' || task.status === 'retrying' ? 'bg-amber-500/20 hover:bg-amber-500/40 text-amber-300' : 'bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300']">
-                                            {{ task.status === 'running' || task.status === 'retrying' ? '⏸' : '▶' }}
-                                        </button>
-                                        <button @click="removeTask(task.id)"
-                                            class="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/40 text-red-300 transition-colors">
-                                            🗑
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Status & Logs -->
-                                <div class="bg-black/20 rounded-lg p-3 font-mono text-xs z-10 flex flex-col gap-1">
-                                    <div
-                                        class="flex justify-between items-center text-xs uppercase tracking-wider font-bold opacity-70">
-                                        <span>STATUS: {{ task.status }}</span>
-                                        <span v-if="task.retryCount > 0">Retries: {{ task.retryCount }}</span>
-                                    </div>
-                                    <div class="truncate text-gray-300" :title="task.log">
-                                        > {{ task.log }}
-                                    </div>
-                                </div>
-
-                                <!-- Progress Bar -->
-                                <div v-if="task.status === 'running'"
-                                    class="absolute bottom-0 left-0 h-1 bg-blue-500 animate-[loading_2s_linear_infinite] w-full"
-                                    style="animation: loading 2s linear infinite">
-                                </div>
-                            </div>
-                        </transition-group>
-                    </div>
-                </div>
+          <!-- 出發 / 到達站 -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">出發站</label>
+              <select v-model="form.start_station" class="field-input" required>
+                <option v-for="s in stations" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
             </div>
+            <div>
+              <label class="label">到達站</label>
+              <select v-model="form.dest_station" class="field-input" required>
+                <option v-for="s in stations" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 日期 & 時間 -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">出發日期</label>
+              <input v-model="form.outbound_date" type="date" class="field-input" required>
+            </div>
+            <div>
+              <label class="label">出發時間（最早可接受）</label>
+              <select v-model="form.outbound_time" class="field-input" required>
+                <option v-for="t in timeOptions" :key="t.val" :value="t.val">{{ t.label }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 最晚接受時間 -->
+          <div>
+            <label class="label">最晚可接受時間</label>
+            <select v-model="form.outbound_delay_time" class="field-input">
+              <option v-for="t in timeOptions" :key="t.val" :value="t.val">{{ t.label }}</option>
+            </select>
+          </div>
+
+          <hr class="divider">
+
+          <!-- 票種數量 -->
+          <div>
+            <label class="label">票種數量</label>
+            <div class="grid grid-cols-5 gap-2">
+              <div v-for="ticket in ticketTypes" :key="ticket.key" class="text-center">
+                <div class="text-xs text-slate-400 mb-1">{{ ticket.label }}</div>
+                <select v-model="form[ticket.key]" class="field-input text-center px-1">
+                  <option v-for="n in 11" :key="n-1" :value="n-1">{{ n-1 }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 座位偏好 & 指定車次 -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">座位偏好</label>
+              <select v-model="form.seat_prefer" class="field-input">
+                <option value="radio16">無偏好</option>
+                <option value="radio17">靠窗</option>
+                <option value="radio18">走道</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">指定車次（選填，逗號分隔）</label>
+              <input v-model="form.preferred_trains" type="text"
+                placeholder="例：101, 103" class="field-input font-mono">
+            </div>
+          </div>
+
+          <!-- 送出 -->
+          <button type="submit" :disabled="loading"
+            class="w-full mt-2 py-3 rounded-xl font-semibold text-white transition-all
+              bg-gradient-to-r from-blue-600 to-indigo-600
+              hover:from-blue-500 hover:to-indigo-500
+              disabled:opacity-50 disabled:cursor-not-allowed
+              active:scale-[0.99] shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2">
+            <svg v-if="loading" class="spinner w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+            <span>{{ loading ? '訂票中...' : '立即訂票' }}</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- 結果 -->
+      <transition name="fade">
+        <div v-if="result" :class="['card p-5', result.status === 'success' ? 'border-emerald-500/40' : 'border-red-500/30']">
+          <div class="flex items-start gap-3">
+            <div :class="['text-xl', result.status === 'success' ? 'text-emerald-400' : 'text-red-400']">
+              {{ result.status === 'success' ? '✓' : '✗' }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div :class="['font-semibold text-sm mb-1', result.status === 'success' ? 'text-emerald-300' : 'text-red-300']">
+                {{ result.status === 'success' ? '訂票成功' : '訂票失敗' }}
+              </div>
+              <p class="text-xs text-slate-400 break-words">{{ result.message }}</p>
+              <div v-if="result.data && Object.keys(result.data).length" class="mt-3 grid grid-cols-2 gap-2">
+                <div v-for="(v, k) in result.data" :key="k"
+                  class="bg-slate-800/60 rounded-lg px-3 py-2 text-xs">
+                  <span class="text-slate-500 block">{{ k }}</span>
+                  <span class="text-slate-200 font-mono">{{ v }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </transition>
     </div>
 
-    <script>
-        const { createApp, ref, onMounted, watch } = Vue;
+    <!-- 右側：歷史紀錄 -->
+    <div class="lg:col-span-1">
+      <div class="card p-5 sticky top-6">
+        <h3 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+          <span class="w-1 h-3.5 bg-purple-500 rounded-full"></span>歷史紀錄
+          <span class="ml-auto text-xs text-slate-500 font-normal">{{ history.length }} 筆</span>
+        </h3>
+        <div v-if="history.length === 0" class="text-center text-slate-600 text-xs py-8">
+          尚無紀錄
+        </div>
+        <div v-else class="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+          <div v-for="(h, i) in history" :key="i"
+            class="hist-item" @click="loadHistory(h)" :title="'點擊載入此設定'">
+            <div>
+              <div class="text-slate-200 font-medium">
+                {{ getStationName(h.start_station) }} → {{ getStationName(h.dest_station) }}
+              </div>
+              <div class="text-slate-500 mt-0.5">{{ formatThsrTime(h.outbound_time) }}・{{ h.adult_num || '1F' }}
+              </div>
+            </div>
+            <div class="text-right text-xs text-slate-600">
+              {{ h.personal_id ? h.personal_id.slice(0,3) + '***' : '' }}
+            </div>
+          </div>
+        </div>
+        <button v-if="history.length > 0" @click="fetchHistory"
+          class="mt-3 w-full text-xs text-slate-500 hover:text-slate-300 py-1.5 border border-slate-700/50 rounded-lg transition-colors">
+          重新載入
+        </button>
+      </div>
+    </div>
 
-        createApp({
-            setup() {
-                const stations = ref([]);
-                const history = ref([]);
-                const tasks = ref([]);
+  </div>
+</div>
 
-                // Form Data
-                const form = ref({
-                    personal_id: '',
-                    phone: '',
-                    start_station: 1,
-                    dest_station: 2,
-                    outbound_date: new Date().toISOString().split('T')[0],
-                    outbound_time: '1200',
-                    outbound_delay_time: 23,
-                    adult_num_val: 1,
-                    seat_prefer: 'radio16',
-                    child_ticket_num_val: 0,
-                    disabled_ticket_num_val: 0,
-                    elder_ticket_num_val: 0,
-                    college_ticket_num_val: 0,
-                    preferred_trains: '',
-                });
+<script>
+const { createApp, ref, onMounted, computed } = Vue;
 
-                const commonTimes = [
-                    { val: "500", label: "05:00" }, { val: "600", label: "06:00" }, { val: "700", label: "07:00" },
-                    { val: "800", label: "08:00" }, { val: "900", label: "09:00" }, { val: "1000", label: "10:00" },
-                    { val: "1100", label: "11:00" }, { val: "1200", label: "12:00" }, { val: "1230", label: "12:30" },
-                    { val: "1300", label: "13:00" }, { val: "1400", label: "14:00" }, { val: "1500", label: "15:00" },
-                    { val: "1600", label: "16:00" }, { val: "1700", label: "17:00" }, { val: "1800", label: "18:00" },
-                    { val: "1900", label: "19:00" }, { val: "2000", label: "20:00" }, { val: "2100", label: "21:00" },
-                    { val: "2200", label: "22:00" }, { val: "2300", label: "23:00" }
-                ];
+createApp({
+  setup() {
+    const stations = ref([]);
+    const history = ref([]);
+    const loading = ref(false);
+    const result = ref(null);
 
-                // --- Data Fetching ---
-                const fetchStations = async () => {
-                    try {
-                        const res = await fetch('/api/stations');
-                        stations.value = await res.json();
-                    } catch (e) { console.error(e); }
-                };
+    // 產生 05:00 ~ 23:30 每半小時一個選項
+    const timeOptions = (() => {
+      const opts = [];
+      for (let h = 5; h <= 23; h++) {
+        const hh = String(h).padStart(2, '0');
+        opts.push({ val: `${h}00`, label: `${hh}:00` });
+        opts.push({ val: `${h}30`, label: `${hh}:30` });
+      }
+      return opts;
+    })();
 
-                const fetchHistory = async () => {
-                    try {
-                        const res = await fetch('/api/history');
-                        history.value = await res.json();
-                    } catch (e) { console.error(e); }
-                };
+    const ticketTypes = [
+      { key: 'adult_num_val',    label: '全票（成人）' },
+      { key: 'child_num_val',    label: '孩童票' },
+      { key: 'disabled_num_val', label: '愛心票' },
+      { key: 'elder_num_val',    label: '敬老票' },
+      { key: 'college_num_val',  label: '大學生票' },
+    ];
 
-                const getStationName = (id) => {
-                    const s = stations.value.find(x => x.id === id);
-                    return s ? s.name : id;
-                };
+    const stationNames = {
+      1: '南港', 2: '台北', 3: '板橋', 4: '桃園', 5: '新竹',
+      6: '苗栗', 7: '台中', 8: '彰化', 9: '雲林', 10: '嘉義',
+      11: '台南', 12: '左營',
+    };
 
-                const loadHistory = (h) => {
-                    form.value = {
-                        ...form.value,
-                        ...h,
-                        adult_num_val: parseInt(h.adult_num) || 1, // simplified
-                        outbound_delay_time: h.outbound_delay_time ? parseInt(h.outbound_delay_time) : 23,
-                        // reset other tickets to 0 for simplicity or parse real values
-                    };
-                };
+    const form = ref({
+      personal_id: '',
+      phone: '',
+      start_station: 2,
+      dest_station: 11,
+      outbound_date: new Date().toISOString().split('T')[0],
+      outbound_time: '700',
+      outbound_delay_time: '2300',
+      adult_num_val: 1,
+      child_num_val: 0,
+      disabled_num_val: 0,
+      elder_num_val: 0,
+      college_num_val: 0,
+      seat_prefer: 'radio16',
+      preferred_trains: '',
+    });
 
-                // --- Task Management ---
+    const getStationName = (id) => {
+      const s = stations.value.find(x => x.id === id);
+      return s ? s.name : stationNames[id] ?? id;
+    };
 
-                const addToQueue = () => {
-                    const task = {
-                        id: Date.now(),
-                        config: JSON.parse(JSON.stringify(form.value)), // Deep copy
-                        status: 'stopped', // Start as stopped so user can double check
-                        log: 'Ready to start. Waiting for command...',
-                        retryCount: 0,
-                        timer: null
-                    };
-                    tasks.value.unshift(task);
-                    const taskProxy = tasks.value[0]; // Get reactive proxy
+    // THSR 格式時間轉回可讀格式，例如 "700A" -> "07:00"
+    const formatThsrTime = (thsrTime) => {
+      if (!thsrTime) return '';
+      // 已是 HH:MM 格式則直接回傳
+      if (/^\d{1,2}:\d{2}$/.test(thsrTime)) return thsrTime;
+      // 去掉尾端字母
+      const raw = thsrTime.replace(/[ANP]$/, '');
+      const suffix = thsrTime.slice(-1);
+      const m = raw.slice(-2);
+      const hRaw = raw.slice(0, -2) || '0';
+      let h = parseInt(hRaw);
+      if (suffix === 'P' && h !== 12) h += 12;
+      if (suffix === 'A' && h === 12) h = 0;
+      return `${String(h).padStart(2,'0')}:${m}`;
+    };
 
-                    // Auto-start recommendation? Let's auto-start for convenience
-                    // runTask(task); 
-                    // Or keep stopped.
-                    // Let's set to pending and run.
-                    taskProxy.status = 'pending';
-                    taskProxy.log = 'Queued...';
-                    runTask(taskProxy);
-                };
+    const fetchStations = async () => {
+      try {
+        const res = await fetch('/api/stations');
+        stations.value = await res.json();
+      } catch (e) { console.error(e); }
+    };
 
-                const removeTask = (id) => {
-                    const idx = tasks.value.findIndex(t => t.id === id);
-                    if (idx !== -1) {
-                        clearTimeout(tasks.value[idx].timer); // Stop timer
-                        tasks.value.splice(idx, 1);
-                    }
-                };
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch('/api/history');
+        const data = await res.json();
+        // 最新的排前面
+        history.value = data.reverse();
+      } catch (e) { console.error(e); }
+    };
 
-                const toggleTask = (task) => {
-                    if (task.status === 'running' || task.status === 'retrying') {
-                        // Stop
-                        task.status = 'stopped';
-                        task.log = 'Paused by user.';
-                        clearTimeout(task.timer);
-                    } else {
-                        // Start
-                        task.status = 'pending';
-                        task.log = 'Resuming...';
-                        runTask(task);
-                    }
-                };
+    const loadHistory = (h) => {
+      // 將歷史設定載入表單（THSR 時間格式轉回前端格式）
+      const timeVal = thsrTimeToVal(h.outbound_time);
+      const delayVal = h.outbound_delay_time || null;
 
-                const startAll = () => {
-                    tasks.value.forEach(t => {
-                        if (t.status === 'stopped') {
-                            t.status = 'pending';
-                            runTask(t);
-                        }
-                    });
-                };
+      form.value = {
+        personal_id: h.personal_id || '',
+        phone: h.phone || '',
+        start_station: h.start_station,
+        dest_station: h.dest_station,
+        outbound_date: form.value.outbound_date,
+        outbound_time: timeVal || form.value.outbound_time,
+        outbound_delay_time: delayVal || form.value.outbound_delay_time,
+        adult_num_val: parseTicketNum(h.adult_num) ?? 1,
+        child_num_val: parseTicketNum(h.child_ticket_num) ?? 0,
+        disabled_num_val: parseTicketNum(h.disabled_ticket_num) ?? 0,
+        elder_num_val: parseTicketNum(h.elder_ticket_num) ?? 0,
+        college_num_val: parseTicketNum(h.college_ticket_num) ?? 0,
+        seat_prefer: 'radio16',
+        preferred_trains: h.preferred_trains ? h.preferred_trains.join(', ') : '',
+      };
+      result.value = null;
+    };
 
-                const stopAll = () => {
-                    tasks.value.forEach(t => {
-                        if (t.status === 'running' || t.status === 'retrying') {
-                            t.status = 'stopped';
-                            t.log = 'Stopped by user.';
-                            clearTimeout(t.timer);
-                        }
-                    });
-                };
+    // "700A" -> "700", "130P" -> "1300", "1200N" -> "1200"
+    const thsrTimeToVal = (thsrTime) => {
+      if (!thsrTime) return null;
+      const suffix = thsrTime.slice(-1);
+      const raw = thsrTime.slice(0, -1);
+      const m = raw.slice(-2);
+      const hRaw = raw.slice(0, -2) || '0';
+      let h = parseInt(hRaw);
+      if (suffix === 'N') return '1200';
+      if (suffix === 'P' && h !== 12) h += 12;
+      if (suffix === 'A' && h === 12) h = 0;
+      return `${h}${m}`;
+    };
 
-                // --- Worker Logic ---
-                const runTask = async (task) => {
-                    if (task.status === 'stopped') return;
+    const parseTicketNum = (str) => {
+      if (!str) return null;
+      const n = parseInt(str);
+      return isNaN(n) ? null : n;
+    };
 
-                    const now = new Date().toLocaleTimeString();
-                    task.status = 'running';
-                    task.log = `[${now}] 🚀 Sending request... (Attempt ${task.retryCount + 1})`;
+    const submitBooking = async () => {
+      loading.value = true;
+      result.value = null;
 
-                    try {
-                        // Prepare payload
-                        const payload = {
-                            ...task.config,
-                            adult_num: `${task.config.adult_num_val}F`,
-                            child_ticket_num: `${task.config.child_ticket_num_val || 0}H`,
-                            disabled_ticket_num: `${task.config.disabled_ticket_num_val || 0}W`,
-                            elder_ticket_num: `${task.config.elder_ticket_num_val || 0}E`,
-                            college_ticket_num: `${task.config.college_ticket_num_val || 0}P`,
-                            outbound_delay_time: String(task.config.outbound_delay_time),
-                            preferred_trains: task.config.preferred_trains
-                        };
+      const f = form.value;
+      const payload = {
+        personal_id: f.personal_id,
+        phone: f.phone,
+        start_station: f.start_station,
+        dest_station: f.dest_station,
+        outbound_date: f.outbound_date,
+        outbound_time: f.outbound_time,
+        outbound_delay_time: f.outbound_delay_time,
+        adult_num: `${f.adult_num_val}F`,
+        child_ticket_num: `${f.child_num_val}H`,
+        disabled_ticket_num: `${f.disabled_num_val}W`,
+        elder_ticket_num: `${f.elder_num_val}E`,
+        college_ticket_num: `${f.college_num_val}P`,
+        seat_prefer: f.seat_prefer,
+        preferred_trains: f.preferred_trains || null,
+      };
 
-                        // AbortController: 30s timeout 確保後端無回應時前端不會無限 hang
-                        const controller = new AbortController();
-                        const fetchTimeout = setTimeout(() => controller.abort(), 15000);
+      try {
+        const res = await fetch('/api/book', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        result.value = data;
+        fetchHistory();
+      } catch (e) {
+        result.value = { status: 'error', message: e.message };
+      } finally {
+        loading.value = false;
+      }
+    };
 
-                        let res;
-                        try {
-                            res = await fetch('/api/book', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(payload),
-                                signal: controller.signal
-                            });
-                        } finally {
-                            clearTimeout(fetchTimeout);
-                        }
+    onMounted(() => {
+      fetchStations();
+      fetchHistory();
+    });
 
-                        const data = await res.json();
-
-                        if (task.status === 'stopped') return; // Double check
-
-                        if (data.status === 'success') {
-                            const ts = new Date().toLocaleTimeString();
-                            task.status = 'success';
-                            task.log = `[${ts}] ✅ Booking Successful!`;
-                            new Notification("訂票成功!", { body: `${task.config.outbound_date} 的票訂到了!` });
-                            fetchHistory();
-                        } else {
-                            // Failed
-                            const ts = new Date().toLocaleTimeString();
-                            const msg = data.message || '';
-                            const errors = data.data?.errors?.join(', ') || '';
-                            const fullMsg = msg + (errors ? ' ' + errors : '');
-
-                            // Check for known errors to suppress
-                            const knownErrors = [
-                                '售完', 'Sold out',
-                                'Preferred trains',
-                                '檢測碼', 'Captcha',
-                                '系統忙碌', 'System busy',
-                                '太晚了', '超過限制時間',
-                                'Max retries exceeded'
-                            ];
-                            const isKnown = knownErrors.some(k => fullMsg.includes(k));
-
-                            task.status = 'retrying';
-                            task.retryCount++;
-
-                            if (isKnown) {
-                                // Simplified log for known errors
-                                task.log = `[${ts}] ⏳ Scanning... (Attempt ${task.retryCount}) | ${fullMsg}`;
-                            } else {
-                                // unexpected error
-                                task.log = `[${ts}] ⚠️ Failed: ${fullMsg}. Retrying...`;
-                            }
-
-                            // Schedule retry
-                            const delay = 15000 + Math.random() * 5000; // 15~20s
-                            task.timer = setTimeout(() => {
-                                runTask(task);
-                            }, delay);
-                        }
-
-                    } catch (e) {
-                        if (task.status === 'stopped') return;
-
-                        const ts = new Date().toLocaleTimeString();
-                        task.status = 'retrying';
-                        task.retryCount++;
-
-                        if (e.name === 'AbortError') {
-                            // fetch 被 AbortController 中止（30s timeout）
-                            task.log = `[${ts}] ⏱️ Request timed out. Retrying...`;
-                        } else {
-                            task.log = `[${ts}] ❌ Error: ${e.message}. Retrying...`;
-                        }
-                        const delay = 15000 + Math.random() * 5000; // 15~20s
-                        task.timer = setTimeout(() => {
-                            runTask(task);
-                        }, delay);
-                    }
-                };
-
-                // --- UI Helpers ---
-                const getStatusStyle = (s) => {
-                    if (s === 'success') return 'bg-emerald-500/10 border-emerald-500/50';
-                    if (s === 'running') return 'bg-blue-500/10 border-blue-500/50 shadow-blue-500/10 shadow-lg';
-                    if (s === 'retrying') return 'bg-amber-500/10 border-amber-500/50';
-                    return 'bg-gray-700/30 border-gray-600';
-                };
-
-                const getStatusIndicator = (s) => {
-                    if (s === 'success') return 'bg-emerald-500';
-                    if (s === 'running') return 'bg-blue-500 animate-pulse';
-                    if (s === 'retrying') return 'bg-amber-500 animate-pulse';
-                    return 'bg-gray-500';
-                };
-
-                // --- Persistence ---
-                const saveTasks = () => {
-                    localStorage.setItem('thsr_tasks', JSON.stringify(tasks.value.map(t => ({
-                        ...t,
-                        status: 'stopped', // Always save as stopped to prevent auto-run on reload
-                        log: 'Restored from history. Stopped.',
-                        timer: null
-                    }))));
-                };
-
-                const loadTasks = () => {
-                    const saved = localStorage.getItem('thsr_tasks');
-                    if (saved) {
-                        try {
-                            tasks.value = JSON.parse(saved);
-                        } catch (e) { console.error('Failed to load tasks', e); }
-                    }
-                };
-
-                watch(tasks, () => saveTasks(), { deep: true });
-
-                onMounted(() => {
-                    fetchStations();
-                    fetchHistory();
-                    loadTasks();
-                    if (Notification.permission !== "granted") {
-                        Notification.requestPermission();
-                    }
-                });
-
-                return {
-                    form, stations, history, tasks, timeOptions: commonTimes,
-                    addToQueue, removeTask, toggleTask, startAll, stopAll,
-                    getStationName, loadHistory,
-                    getStatusStyle, getStatusIndicator
-                };
-            }
-        }).mount('#app');
-    </script>
+    return {
+      stations, history, loading, result,
+      form, timeOptions, ticketTypes,
+      getStationName, formatThsrTime,
+      fetchHistory, loadHistory, submitBooking,
+    };
+  }
+}).mount('#app');
+</script>
 </body>
-
 </html>

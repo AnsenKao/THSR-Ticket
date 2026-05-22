@@ -11,7 +11,7 @@ class NonInteractiveFirstPageFlow(FirstPageFlow):
     def __init__(self, client: HTTPRequest, record: Record = None, captcha_solver: CaptchaSolver = None) -> None:
         super().__init__(client, record, captcha_solver)
 
-    def select_station(self, travel_type: str, default_value: int = StationMapping.Taipei.value) -> int:
+    def select_station(self, travel_type: str, default_value: int = StationMapping.台北.value) -> int:
         # Assuming record is fully populated for non-interactive mode
         if self.record:
             if travel_type == '啟程' and self.record.start_station is not None:

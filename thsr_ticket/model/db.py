@@ -78,6 +78,44 @@ class ParamDB:
                 return idx
         return None
 
+    @staticmethod
+    def _normalize_delay(val: str) -> str:
+        """'23' -> '2300', '1800' -> '1800' (keep HHMM format)."""
+        if not val:
+            return "2300"
+        s = str(val)
+        return s + "00" if len(s) <= 2 else s
+
+    def save_record(self, record) -> None:
+        """Save booking profile on submit (no date, dedup by identity + route + time)."""
+        data = {
+            'personal_id': getattr(record, 'personal_id', None),
+            'phone': getattr(record, 'phone', None),
+            'start_station': getattr(record, 'start_station', None),
+            'dest_station': getattr(record, 'dest_station', None),
+            'outbound_time': getattr(record, 'outbound_time', None),
+            'adult_num': getattr(record, 'adult_num', None),
+            'outbound_delay_time': self._normalize_delay(getattr(record, 'outbound_delay_time', None)),
+            'child_ticket_num': getattr(record, 'child_ticket_num', None),
+            'disabled_ticket_num': getattr(record, 'disabled_ticket_num', None),
+            'elder_ticket_num': getattr(record, 'elder_ticket_num', None),
+            'college_ticket_num': getattr(record, 'college_ticket_num', None),
+            'preferred_trains': list(record.preferred_trains) if getattr(record, 'preferred_trains', None) else None,
+        }
+        key = (
+            (Query().personal_id == data['personal_id']) &
+            (Query().start_station == data['start_station']) &
+            (Query().dest_station == data['dest_station']) &
+            (Query().outbound_time == data['outbound_time']) &
+            (Query().adult_num == data['adult_num'])
+        )
+        with self.lock:
+            with TinyDB(self.db_path, sort_keys=True, indent=4) as db:
+                if db.contains(key):
+                    db.update(data, key)
+                else:
+                    db.insert(data)
+
     def get_history_record(self) -> Record:
         """獲取用戶選擇的歷史紀錄
         

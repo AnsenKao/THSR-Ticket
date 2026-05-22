@@ -49,7 +49,7 @@ class FirstPageFlow:
 
         book_model = BookingModel(
             start_station=self.record.start_station or self.select_station('啟程'),
-            dest_station=self.record.dest_station or self.select_station('到達', default_value=StationMapping.Zuouing.value),
+            dest_station=self.record.dest_station or self.select_station('到達', default_value=StationMapping.左營.value),
             outbound_date=self.record.outbound_date or self.select_date('出發'),
             outbound_time=self.record.outbound_time or self.select_time('啟程'),
             adult_ticket_num=self.record.adult_num or self.select_ticket_num(TicketType.ADULT),
@@ -81,7 +81,7 @@ class FirstPageFlow:
         resp = self.client.submit_booking_form(dict_params)
         return resp, book_model, self.record
 
-    def select_station(self, travel_type: str, default_value: int = StationMapping.Taipei.value) -> int:
+    def select_station(self, travel_type: str, default_value: int = StationMapping.台北.value) -> int:
         if (
             self.record
             and (
