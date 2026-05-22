@@ -211,19 +211,20 @@ def book_ticket(req: BookingRequest):
 
     except Exception as e:
         error_msg = str(e)
-        # Check for known errors to suppress stack trace
+        first_line = error_msg.splitlines()[0] if error_msg else ""
         known_errors = [
             "Preferred trains", "Tailless-Sold out", "system is busy",
             "系統忙碌", "sold out", "不再提供網路訂位",
             "No available trains", "太晚了", "超過限制時間",
-            "timed out", "timestamp", "Max retries exceeded"
+            "timed out", "timestamp", "Max retries exceeded",
+            "Timeout", "exceeded",
         ]
         if any(k in error_msg for k in known_errors):
-            logger.warning(f"Booking suppressed error: {error_msg}")
+            logger.warning(f"Booking suppressed error: {first_line}")
         else:
-            logger.error(f"Booking error: {e}", exc_info=True)
-            
-        return BookingResponse(status="error", message=error_msg)
+            logger.error(f"Booking error: {first_line}", exc_info=True)
+
+        return BookingResponse(status="error", message=first_line)
     finally:
         if 'client' in locals() and hasattr(client, 'close'):
             client.close()
