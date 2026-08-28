@@ -1,6 +1,7 @@
+import os
 from typing import Mapping, Any
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import Browser, Error as PlaywrightError, sync_playwright
 
 from thsr_ticket.configs.web.http_config import HTTPConfig
 from thsr_ticket.remote.http_request import parse_security_img_url
@@ -24,10 +25,28 @@ class PlaywrightResponse:
         self.content = content
 
 
+def _env_flag(name: str, default: bool) -> bool:
+    val = os.environ.get(name)
+    if val is None:
+        return default
+    return val.strip().lower() not in ("0", "false", "no", "")
+
+
 class PlaywrightHTTPRequest:
+    """以瀏覽器發送 THSR 請求。
+
+    Akamai Bot Manager 會擋掉 Playwright 內建的 Chromium headless（連線直接 hang），
+    但放行系統安裝的 Chrome headless。因此預設用 channel="chrome" + headless，
+    讓搶票迴圈可以在背景跑而不佔用桌面。
+    可用環境變數覆寫：
+      THSR_BROWSER_HEADLESS=0  改用有頭視窗
+      THSR_BROWSER_CHANNEL=msedge  指定瀏覽器（預設依序試 chrome、msedge）
+      THSR_BROWSER_CHANNEL=""  改用 Playwright 內建 Chromium（headless 會被擋）
+    """
+
     def __init__(self) -> None:
         self._playwright = sync_playwright().start()
-        self._browser = self._playwright.chromium.launch(headless=False)
+        self._browser = self._launch_browser()
         self._context = self._browser.new_context(
             user_agent=HTTPConfig.HTTPHeader.USER_AGENT,
             locale="zh-TW",
@@ -83,6 +102,26 @@ class PlaywrightHTTPRequest:
             timeout=HTTPConfig.HTTP_TIMEOUT * 1000,
         )
         return PlaywrightResponse(resp.body())
+
+    def _launch_browser(self) -> Browser:
+        headless = _env_flag("THSR_BROWSER_HEADLESS", True)
+        env_channel = os.environ.get("THSR_BROWSER_CHANNEL")
+        if env_channel is not None:
+            channels = [env_channel.strip()]
+        else:
+            # Windows 不一定裝 Chrome，但一定有 Edge，兩者都是正式版 Chromium binary
+            channels = ["chrome", "msedge"]
+
+        for channel in channels:
+            try:
+                return self._playwright.chromium.launch(
+                    headless=headless, channel=channel or None
+                )
+            except PlaywrightError:
+                continue
+
+        # 找不到任何系統瀏覽器時退回內建 Chromium，此時只有有頭模式不會被擋
+        return self._playwright.chromium.launch(headless=False)
 
     def close(self) -> None:
         try:
