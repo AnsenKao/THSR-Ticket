@@ -219,11 +219,29 @@
                 {{ result.status === 'success' ? '訂票成功' : '訂票失敗' }}
               </div>
               <p class="text-xs text-slate-400 break-words">{{ result.message }}</p>
+
+              <!-- 座位位置（靠窗 / 走道 / 中間） -->
+              <div v-if="seatInfo"
+                class="mt-3 flex flex-wrap items-center gap-2 bg-slate-800/80 rounded-xl px-3 py-2.5">
+                <span class="text-xs text-slate-500">座位</span>
+                <span class="text-sm font-mono text-slate-100">{{ seatInfo.seat }}</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 font-semibold">
+                  {{ seatInfo.label }}
+                </span>
+                <span v-if="seatInfo.match === true"
+                  class="text-xs text-emerald-400">✓ 符合座位偏好</span>
+                <span v-else-if="seatInfo.match === false"
+                  class="text-xs text-amber-400">與座位偏好不同</span>
+              </div>
+
               <div v-if="result.data && Object.keys(result.data).length" class="mt-3 grid grid-cols-2 gap-2">
                 <div v-for="(v, k) in result.data" :key="k"
                   class="bg-slate-800/60 rounded-lg px-3 py-2 text-xs">
                   <span class="text-slate-500 block">{{ k }}</span>
-                  <span class="text-slate-200 font-mono">{{ v }}</span>
+                  <span class="text-slate-200 font-mono">
+                    {{ v }}
+                    <span v-if="k === 'seat' && seatInfo" class="text-blue-300">（{{ seatInfo.label }}）</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -354,6 +372,34 @@ createApp({
       if (suffix === 'A' && h === 12) h = 0;
       return `${String(h).padStart(2,'0')}:${m}`;
     };
+
+    // 由座位代號判斷位置，例如 "9車5D" -> D -> 走道
+    // 標準／自由車廂 3+2 配置：A、E 靠窗，C、D 走道，B 中間
+    // 商務車廂 2+1 配置：A 靠窗，C 走道，E 單人座（同時靠窗與走道）
+    const seatPosition = (seat, seatClass) => {
+      if (!seat) return null;
+      const m = String(seat).trim().match(/([A-Ea-e])\s*$/);
+      if (!m) return null;
+      const col = m[1].toUpperCase();
+      const isBusiness = String(seatClass || '').includes('商務');
+      const map = isBusiness
+        ? { A: '靠窗', C: '走道', E: '單人座（靠窗＋走道）' }
+        : { A: '靠窗', B: '中間', C: '走道', D: '走道', E: '靠窗' };
+      return map[col] ? { col, label: map[col] } : null;
+    };
+
+    // 訂票成功後顯示的座位資訊，並比對當初選的座位偏好
+    const seatInfo = computed(() => {
+      const data = result.value && result.value.data;
+      if (!data || !data.seat) return null;
+      const pos = seatPosition(data.seat, data.seat_class);
+      if (!pos) return null;
+      const want = form.value.seat_prefer;
+      let match = null;
+      if (want === 'radio17') match = pos.label.includes('靠窗');
+      else if (want === 'radio18') match = pos.label.includes('走道');
+      return { seat: data.seat, col: pos.col, label: pos.label, match };
+    });
 
     const fetchStations = async () => {
       try {
@@ -514,7 +560,7 @@ createApp({
     return {
       stations, history, booking, result,
       form, timeOptions, ticketTypes,
-      getStationName, formatThsrTime,
+      getStationName, formatThsrTime, seatInfo,
       fetchHistory, loadHistory, submitBooking, stopBooking,
     };
   }
