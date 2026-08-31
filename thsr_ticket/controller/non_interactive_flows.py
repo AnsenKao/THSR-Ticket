@@ -71,8 +71,6 @@ class NonInteractiveFirstPageFlow(FirstPageFlow):
         return f'{default_ticket_num}{ticket_type.value}'
 
     def select_seat_prefer(self) -> str:
-        # We need to add seat_prefer to record ideally, or just hardcode for now.
-        # Since standard Record doesn't have seat_prefer, we'll default to None (Radio16)
         # or we can check if our record object has extra attributes dynamically (monkey path)
         if hasattr(self.record, 'seat_prefer') and self.record.seat_prefer:
              return self.record.seat_prefer

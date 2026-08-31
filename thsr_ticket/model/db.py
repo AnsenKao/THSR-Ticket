@@ -24,6 +24,7 @@ class Record(NamedTuple):
     elder_ticket_num: str = None
     college_ticket_num: str = None
     preferred_trains: Iterable[str] = None
+    seat_prefer: str = None
     updated_at: str = None
 
 

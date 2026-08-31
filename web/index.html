@@ -436,7 +436,7 @@ createApp({
         disabled_num_val: parseTicketNum(h.disabled_ticket_num) ?? 0,
         elder_num_val: parseTicketNum(h.elder_ticket_num) ?? 0,
         college_num_val: parseTicketNum(h.college_ticket_num) ?? 0,
-        seat_prefer: 'radio16',
+        seat_prefer: h.seat_prefer || 'radio16',
         preferred_trains: h.preferred_trains ? h.preferred_trains.join(', ') : '',
       };
       result.value = null;

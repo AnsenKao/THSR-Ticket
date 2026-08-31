@@ -167,24 +167,11 @@ def book_ticket(req: BookingRequest):
         preferred_trains=req.preferred_trains.split(",")
         if req.preferred_trains
         else None,
+        seat_prefer=req.seat_prefer,
     )
 
-    # Check if seat_prefer needs to be handled via wrapper if Record doesn't support it
-    # But wait, original Record assumes seat_prefer is handled by interactive flow or passed elsewhere.
-    # We used a wrapper in previous step.
-
-    class RecordWrapper:
-        def __init__(self, record_data, seat_prefer):
-            self._record = record_data
-            self.seat_prefer = seat_prefer
-
-        def __getattr__(self, name):
-            return getattr(self._record, name)
-
-    wrapped_record = RecordWrapper(record, req.seat_prefer)
-
     # Save on submit regardless of result
-    db.save_record(wrapped_record)
+    db.save_record(record)
 
     # 2. Run Flow
     # We replicate BookingFlow.run but use NonInteractiveFirstPageFlow
@@ -200,7 +187,7 @@ def book_ticket(req: BookingRequest):
 
         # Step 1: First Page
         flow1 = NonInteractiveFirstPageFlow(
-            client, record=wrapped_record, captcha_solver=captcha_solver
+            client, record=record, captcha_solver=captcha_solver
         )
         book_resp, book_model, updated_record = flow1.run()
 
