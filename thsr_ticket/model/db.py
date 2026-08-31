@@ -1,9 +1,9 @@
 import os
 import threading
+from datetime import datetime
 from typing import Mapping, List, Iterable, Any, NamedTuple
 
 from tinydb import TinyDB, Query
-from tinydb.database import Document
 
 from thsr_ticket import MODULE_PATH
 from thsr_ticket.configs.web.param_schema import ConfirmTicketModel
@@ -24,6 +24,7 @@ class Record(NamedTuple):
     elder_ticket_num: str = None
     college_ticket_num: str = None
     preferred_trains: Iterable[str] = None
+    updated_at: str = None
 
 
 class ParamDB:
@@ -37,46 +38,23 @@ class ParamDB:
         self.lock = threading.Lock()
 
     def save(self, record: Record, ticket: ConfirmTicketModel) -> None:
-        data = Record(
-            ticket.personal_id,
-            ticket.phone_num,
-            record.start_station,
-            record.dest_station,
-            record.outbound_time,
-            record.adult_num,
-            record.outbound_date,
-            record.outbound_delay_time,
-            record.child_ticket_num,
-            record.disabled_ticket_num,
-            record.elder_ticket_num,
-            record.college_ticket_num,
-            record.preferred_trains
-        )._asdict()  # type: ignore
-        
-        with self.lock:
-            with TinyDB(self.db_path, sort_keys=True, indent=4) as db:
-                hist = db.search(Query().personal_id == ticket.personal_id)
-                if self._compare_hist(data, hist) is None:
-                    db.insert(data)
+        """Save booking profile after a successful booking."""
+        data = self._build_data(
+            record, personal_id=ticket.personal_id, phone=ticket.phone_num
+        )
+        self._upsert(data)
 
     def get_history(self) -> List[Record]:
         with self.lock:
             with TinyDB(self.db_path) as db:
-                dicts = db.all()
-        return [Record(**d) for d in dicts]   # type: ignore
-
-    def _compare_hist(self, data: Mapping[str, Any], hist: Iterable[Document]) -> int:
-        for idx, h in enumerate(hist):
-            # Check if all keys in data match the record in history
-            # If a key is missing in history, it doesn't match
-            match = True
-            for k, v in data.items():
-                if k not in h or h[k] != v:
-                    match = False
-                    break
-            if match:
-                return idx
-        return None
+                docs = db.all()
+        # Oldest first; callers (and the web UI) reverse this to show newest first.
+        # Records without updated_at predate the timestamp and fall back to doc_id.
+        docs = sorted(docs, key=lambda d: (d.get("updated_at") or "", d.doc_id))
+        return [
+            Record(**{k: v for k, v in d.items() if k in Record._fields})  # type: ignore
+            for d in docs
+        ]
 
     @staticmethod
     def _normalize_delay(val: str) -> str:
@@ -87,34 +65,48 @@ class ParamDB:
         return s + "00" if len(s) <= 2 else s
 
     def save_record(self, record) -> None:
-        """Save booking profile on submit (no date, dedup by identity + route + time)."""
-        data = {
-            'personal_id': getattr(record, 'personal_id', None),
-            'phone': getattr(record, 'phone', None),
-            'start_station': getattr(record, 'start_station', None),
-            'dest_station': getattr(record, 'dest_station', None),
-            'outbound_time': getattr(record, 'outbound_time', None),
-            'adult_num': getattr(record, 'adult_num', None),
-            'outbound_delay_time': self._normalize_delay(getattr(record, 'outbound_delay_time', None)),
-            'child_ticket_num': getattr(record, 'child_ticket_num', None),
-            'disabled_ticket_num': getattr(record, 'disabled_ticket_num', None),
-            'elder_ticket_num': getattr(record, 'elder_ticket_num', None),
-            'college_ticket_num': getattr(record, 'college_ticket_num', None),
-            'preferred_trains': list(record.preferred_trains) if getattr(record, 'preferred_trains', None) else None,
-        }
+        """Save booking profile on submit (dedup by identity + route + time)."""
+        self._upsert(self._build_data(record))
+
+    def _build_data(
+        self, record, personal_id: str = None, phone: str = None
+    ) -> Mapping[str, Any]:
+        data = {k: getattr(record, k, None) for k in Record._fields}
+        if personal_id:
+            data["personal_id"] = personal_id
+        if phone:
+            data["phone"] = phone
+        data["outbound_delay_time"] = self._normalize_delay(
+            data["outbound_delay_time"]
+        )
+        trains = data["preferred_trains"]
+        data["preferred_trains"] = (
+            [str(t).strip() for t in trains if str(t).strip()] if trains else None
+        )
+        data["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        return data
+
+    def _upsert(self, data: Mapping[str, Any]) -> None:
+        q = Query()
         key = (
-            (Query().personal_id == data['personal_id']) &
-            (Query().start_station == data['start_station']) &
-            (Query().dest_station == data['dest_station']) &
-            (Query().outbound_time == data['outbound_time']) &
-            (Query().adult_num == data['adult_num'])
+            (q.personal_id == data["personal_id"]) &
+            (q.start_station == data["start_station"]) &
+            (q.dest_station == data["dest_station"]) &
+            (q.outbound_time == data["outbound_time"]) &
+            (q.adult_num == data["adult_num"])
         )
         with self.lock:
             with TinyDB(self.db_path, sort_keys=True, indent=4) as db:
-                if db.contains(key):
-                    db.update(data, key)
-                else:
+                matches = db.search(key)
+                if not matches:
                     db.insert(data)
+                    return
+                # Keep the first match, refresh it, and drop the duplicates that
+                # earlier versions left behind (update() hit every match).
+                db.update(data, doc_ids=[matches[0].doc_id])
+                extra = [d.doc_id for d in matches[1:]]
+                if extra:
+                    db.remove(doc_ids=extra)
 
     def get_history_record(self) -> Record:
         """獲取用戶選擇的歷史紀錄
