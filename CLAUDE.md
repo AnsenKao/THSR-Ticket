@@ -71,6 +71,7 @@ pytest thsr_ticket/unittest/model/test_booking_form.py
 |--------|------|------|
 | GET | `/api/stations` | 取得所有車站列表 |
 | GET | `/api/history` | 取得歷史訂票設定（表單 profile，會去重覆蓋） |
+| GET | `/api/bookings` | 取得歷史訂票結果（訂位代號、車次、座位，附當時的表單快照） |
 | POST | `/api/book` | 執行訂票，回傳 `{ status, message, data }` |
 
 ### 時間格式

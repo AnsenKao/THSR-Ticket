@@ -88,6 +88,11 @@ def get_history():
     return [r._asdict() for r in db.get_history()]
 
 
+@app.get("/api/bookings")
+def get_bookings():
+    return db.get_bookings()
+
+
 def convert_delay_time(time_str: str) -> str:
     """Convert delay time to hour-only string expected by confirm_train_flow.
     Accepts both old format "23" and new format "2300"/"730".
@@ -235,6 +240,7 @@ def book_ticket(req: BookingRequest):
 
         # Save history
         db.save(updated_record, ticket_model)
+        db.save_booking(data, updated_record, personal_id=ticket_model.personal_id)
 
         response = BookingResponse(
             status="success", message="Booking Submitted", data=data

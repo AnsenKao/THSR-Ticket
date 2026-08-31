@@ -28,6 +28,9 @@ class Record(NamedTuple):
     updated_at: str = None
 
 
+BOOKINGS_TABLE = "bookings"
+
+
 class ParamDB:
     def __init__(self, db_path: str = None):
         if db_path is None:
@@ -108,6 +111,38 @@ class ParamDB:
                 extra = [d.doc_id for d in matches[1:]]
                 if extra:
                     db.remove(doc_ids=extra)
+
+    def save_booking(
+        self, ticket: Mapping[str, Any], record, personal_id: str = None
+    ) -> None:
+        """Save a successful booking result plus the form used to get it.
+
+        The profile table is deduped and overwritten over time, so the form is
+        snapshotted here instead of joined back from it.
+        """
+        booking_id = ticket.get("id")
+        if not booking_id:
+            return
+        data = {
+            "ticket": dict(ticket),
+            "form": self._build_data(record, personal_id=personal_id),
+            "booked_at": datetime.now().isoformat(timespec="seconds"),
+        }
+        with self.lock:
+            with TinyDB(self.db_path, sort_keys=True, indent=4) as db:
+                table = db.table(BOOKINGS_TABLE)
+                existing = table.search(Query().ticket.id == booking_id)
+                if existing:
+                    table.update(data, doc_ids=[existing[0].doc_id])
+                else:
+                    table.insert(data)
+
+    def get_bookings(self) -> List[Mapping[str, Any]]:
+        """Newest first."""
+        with self.lock:
+            with TinyDB(self.db_path) as db:
+                docs = db.table(BOOKINGS_TABLE).all()
+        return sorted(docs, key=lambda d: d.get("booked_at") or "", reverse=True)
 
     def get_history_record(self) -> Record:
         """獲取用戶選擇的歷史紀錄

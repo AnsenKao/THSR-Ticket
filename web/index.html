@@ -276,14 +276,71 @@
             </div>
           </div>
         </div>
+        <button @click="openBookings"
+          class="mt-3 w-full text-xs text-emerald-300/90 hover:text-emerald-200 py-1.5 border border-emerald-500/30 hover:border-emerald-500/60 rounded-lg transition-colors">
+          訂票結果
+        </button>
         <button v-if="history.length > 0" @click="fetchHistory"
-          class="mt-3 w-full text-xs text-slate-500 hover:text-slate-300 py-1.5 border border-slate-700/50 rounded-lg transition-colors">
+          class="mt-2 w-full text-xs text-slate-500 hover:text-slate-300 py-1.5 border border-slate-700/50 rounded-lg transition-colors">
           重新載入
         </button>
       </div>
     </div>
 
   </div>
+
+  <!-- 訂票結果 dialog -->
+  <transition name="fade">
+    <div v-if="showBookings" class="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-8 overflow-y-auto"
+      style="background: rgba(2, 6, 23, 0.75); backdrop-filter: blur(4px);" @click.self="showBookings = false">
+      <div class="card w-full max-w-2xl p-5 my-auto">
+        <h3 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+          <span class="w-1 h-3.5 bg-emerald-500 rounded-full"></span>訂票結果
+          <span class="text-xs text-slate-500 font-normal">{{ bookings.length }} 筆</span>
+          <button @click="showBookings = false"
+            class="ml-auto text-slate-500 hover:text-slate-200 text-lg leading-none px-1">×</button>
+        </h3>
+
+        <div v-if="bookings.length === 0" class="text-center text-slate-600 text-xs py-10">
+          尚無訂票結果
+        </div>
+        <div v-else class="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+          <div v-for="(b, i) in bookings" :key="i"
+            class="rounded-xl border border-slate-700/50 bg-slate-900/50 p-4">
+            <div class="flex items-start gap-3">
+              <div class="flex-1 min-w-0">
+                <div class="text-emerald-300 font-semibold tracking-wider">{{ b.ticket.id }}</div>
+                <div class="text-slate-200 text-sm mt-1">
+                  {{ b.ticket.start_station }} → {{ b.ticket.dest_station }}
+                  <span class="text-slate-500 mx-1">·</span>{{ b.ticket.train_id }} 車次
+                </div>
+                <div class="text-slate-400 text-xs mt-1">
+                  {{ b.ticket.date }}　{{ b.ticket.depart_time }} - {{ b.ticket.arrival_time }}
+                </div>
+                <div class="text-slate-500 text-xs mt-1">
+                  {{ b.ticket.seat_class }}　{{ b.ticket.seat }}　{{ b.ticket.ticket_num_info }}
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-slate-200 text-sm font-medium">{{ b.ticket.price }}</div>
+                <div class="text-slate-500 text-xs mt-1">訂於 {{ formatUpdatedAt(b.booked_at) }}</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 mt-3 pt-3 border-t border-slate-700/40">
+              <div class="text-xs text-amber-400/80 flex-1 min-w-0 truncate">
+                付款期限：{{ b.ticket.payment_deadline }}
+              </div>
+              <button @click="rebookFrom(b)"
+                class="shrink-0 text-xs text-blue-300 hover:text-blue-200 border border-blue-500/30
+                  hover:border-blue-500/60 rounded-lg px-3 py-1.5 transition-colors">
+                以此設定再訂一次
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </transition>
 </div>
 
 <script>
@@ -293,6 +350,8 @@ createApp({
   setup() {
     const stations = ref([]);
     const history = ref([]);
+    const bookings = ref([]);
+    const showBookings = ref(false);
     const result = ref(null);
 
     // 搶票狀態
@@ -418,6 +477,25 @@ createApp({
       } catch (e) { console.error(e); }
     };
 
+    const fetchBookings = async () => {
+      try {
+        const res = await fetch('/api/bookings');
+        bookings.value = await res.json();
+      } catch (e) { console.error(e); }
+    };
+
+    const openBookings = () => {
+      showBookings.value = true;
+      fetchBookings();
+    };
+
+    // 用該次訂票當下的表單設定重填（日期保留目前值，過去的日期沒有意義）
+    const rebookFrom = (b) => {
+      if (b.form) loadHistory(b.form);
+      showBookings.value = false;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const loadHistory = (h) => {
       // 將歷史設定載入表單（THSR 時間格式轉回前端格式）
       const timeVal = thsrTimeToVal(h.outbound_time);
@@ -533,6 +611,7 @@ createApp({
           b.log = `[${ts}] 訂票成功！`;
           result.value = data;
           fetchHistory();
+          fetchBookings();
           if (Notification.permission === 'granted') {
             new Notification('訂票成功！', { body: `${payload.outbound_date} 的票搶到了` });
           }
@@ -571,6 +650,7 @@ createApp({
       form, timeOptions, ticketTypes,
       getStationName, formatThsrTime, seatInfo,
       fetchHistory, loadHistory, formatUpdatedAt, submitBooking, stopBooking,
+      bookings, showBookings, openBookings, rebookFrom,
     };
   }
 }).mount('#app');
