@@ -12,3 +12,4 @@ dist/
 !station.png
 test.py
 *.code-workspace
+.claude/
