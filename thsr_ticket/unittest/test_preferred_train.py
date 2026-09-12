@@ -43,6 +43,18 @@ class TestPreferredTrain(unittest.TestCase):
             self.flow.select_available_trains(self.trains)
         self.assertIn("Preferred trains", str(cm.exception))
 
+    def test_preference_leading_zero(self):
+        """Test matching four-digit train codes written with a leading zero"""
+        self.flow.record = MockRecord(preferred_trains=["0202"])
+        selected = self.flow.select_available_trains(self.trains)
+        self.assertEqual(selected, "train_202", "Should match 0202 against train 202")
+
+    def test_preference_leading_zero_no_match(self):
+        """Test that a leading zero does not create a false match"""
+        self.flow.record = MockRecord(preferred_trains=["0999"])
+        with self.assertRaises(ValueError):
+            self.flow.select_available_trains(self.trains)
+
     def test_preference_whitespace_handling(self):
         """Test matching with whitespace in input"""
         self.flow.record = MockRecord(preferred_trains=[" 202 "])
