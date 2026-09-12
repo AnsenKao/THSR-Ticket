@@ -34,16 +34,27 @@ class ConfirmTrainFlow:
         resp = self.client.submit_train(dict_params)
         return resp, confirm_model
 
+    @staticmethod
+    def normalize_train_id(train_id) -> str:
+        """車次比對前的正規化：去掉前導零，讓 "0121" 與 "121" 視為同一班。
+
+        高鐵時刻表的車次是四位數（如 0121），但 AvailTrains 是用 int() 解析網頁，
+        不正規化的話使用者寫 "0121" 永遠比不到。
+        """
+        text = str(train_id).strip()
+        return str(int(text)) if text.isdigit() else text
+
     def select_available_trains(self, trains: List[Train], default_value: int = 1) -> Train:
         if self.record and self.record.preferred_trains:
             # Create a set for O(1) lookup, handling potential whitespace
             preferred = {t.strip() for t in self.record.preferred_trains if t.strip()}
-            
+
             if preferred:
+                normalized = {self.normalize_train_id(t) for t in preferred}
                 for train in trains:
-                    if str(train.id) in preferred:
+                    if self.normalize_train_id(train.id) in normalized:
                         return train.form_value
-                
+
                 # If we have preferences but found no match among available trains
                 raise ValueError(f"Preferred trains {preferred} not found in available list: {[t.id for t in trains]}")
 
